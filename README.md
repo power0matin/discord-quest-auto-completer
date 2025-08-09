@@ -1,5 +1,8 @@
 # Discord Quest Completer 🚀
 
+### [مشاهده‌ی فایل راهنمای فارسی](https://github.com/YourUsername/YourRepo/blob/main/README.fa.md) <!-- این لینک را به آدرس واقعی README انگلیسی تغییر بدهید -->
+
+
 ## Overview 📝
 A professional JavaScript script to automatically accept and complete Discord Quests on the Discord Desktop app.  
 It injects into Discord via Developer Tools, uses internal APIs to enroll in quests, and spoofs progress for various quest types (streaming, gaming, watching videos, etc.).
