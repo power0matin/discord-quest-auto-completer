@@ -15,6 +15,8 @@
 A professional JavaScript script to automatically accept and complete Discord Quests on the Discord Desktop app.  
 It injects into Discord via Developer Tools, uses internal APIs to enroll in quests, and spoofs progress for various quest types (streaming, gaming, watching videos, etc.).
 
+![Quests Completed](assets/quest-completed.png)
+
 > **Warning ⚠️**
 >
 > - Using this script may violate Discord's Terms of Service and can lead to account suspension or ban. Use at your own risk.
