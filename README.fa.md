@@ -1,6 +1,6 @@
 # Discord Quest Completer 🚀
 
-[View English README](https://github.com/YourUsername/YourRepo/blob/main/README.md) <!-- این لینک را به آدرس واقعی README انگلیسی تغییر بدهید -->
+### [View English README](https://github.com/YourUsername/YourRepo/blob/main/README.md) <!-- این لینک را به آدرس واقعی README انگلیسی تغییر بدهید -->
 
  
 ## بررسی اجمالی 📝
