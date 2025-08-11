@@ -7,7 +7,9 @@
     <img src="https://img.shields.io/github/stars/power0matin/discord-quest-auto-completer?style=flat&labelColor=333333&logoColor=E7E7E7&color=EEAA00&label=Stars&logo=github"/>
   </a>
 </p>
-### [View English README](README.md) <!-- این لینک را به آدرس واقعی README انگلیسی تغییر بدهید -->
+
+### [View English README](README.md)
+
 
 ## بررسی اجمالی 📝
 
