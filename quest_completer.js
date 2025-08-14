@@ -37,19 +37,27 @@ let encodeStreamKey = Object.values(wpRequire.c).find(
 // Function to enroll in a quest
 async function enrollInQuest(questId) {
   try {
-    const res = await api.post({ url: `/quests/${questId}/enroll` });
+    const res = await api.post({
+      url: `/quests/${questId}/enroll`,
+      body: {
+        location: "store",       // Example value
+        source: "quest_page"     // Example value
+      }
+    });
+
     if (res.status === 200) {
       console.log(`Enrolled in quest ${questId}`);
       return true;
     } else {
-      console.warn(`Failed to enroll in quest ${questId}: ${res.status}`);
+      console.warn(`Failed to enroll in quest ${questId}: ${res.status}`, res.body);
       return false;
     }
   } catch (err) {
-    console.error(`Error enrolling in quest ${questId}:`, err);
+    console.error(`Error enrolling in quest ${questId}:`, err, err?.body, err?.stack);
     return false;
   }
 }
+
 
 // Function to complete a quest based on type
 async function completeQuest(quest) {
@@ -198,10 +206,12 @@ async function main() {
 
   // Enroll in unenrolled quests
   for (const quest of allQuests) {
+    console.log("Quest data:", quest); // لاگ کامل آبجکت کوئست
+    console.log("Quest config:", quest.config); // لاگ فقط کانفیگ
+
     if (!quest.userStatus || !quest.userStatus.enrolledAt) {
       const enrolled = await enrollInQuest(quest.id);
       if (enrolled) {
-        // Refresh quests
         quest.userStatus = {
           enrolledAt: new Date().toISOString(),
           progress: {},
@@ -209,6 +219,7 @@ async function main() {
       }
     }
   }
+
 
   // Complete enrolled but incomplete quests
   const incompleteQuests = allQuests.filter(
