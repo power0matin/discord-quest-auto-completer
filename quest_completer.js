@@ -67,20 +67,25 @@ if (!api || !QuestsStore || !RunningGameStore || !FluxDispatcher) {
 // Enroll in quest function
 async function enrollInQuest(questId) {
   try {
-    const res = await api.post({ url: `/quests/${questId}/enroll` });
+    const res = await api.post({
+      url: `/quests/${questId}/enroll`,
+      body: { location: "store", source: "quest_page" },
+    });
     if (res.status === 200) {
       console.log(`Enrolled in quest ${questId}`);
       return true;
     } else {
-      console.warn(`Failed to enroll in quest ${questId}: ${res.status}`);
+      console.warn(
+        `Failed to enroll in quest ${questId}: ${res.status}`,
+        res.body
+      );
       return false;
     }
   } catch (err) {
-    console.error(`Error enrolling in quest ${questId}:`, err, err?.body, err?.stack);
+    console.error(`Error enrolling in quest ${questId}:`, err);
     return false;
   }
 }
-
 
 // Complete quest function with all task types
 async function completeQuest(quest) {
@@ -336,24 +341,38 @@ async function completeQuest(quest) {
 
 // Main function to process all quests
 async function main() {
-  const allQuests = [...QuestsStore.quests.values()].filter(
-    (q) => new Date(q.config.expiresAt).getTime() > Date.now()
-  );
-  if (allQuests.length === 0) return console.log("No active quests found.");
+  try {
+    if (!QuestsStore.quests) {
+      console.error("QuestsStore not initialized or empty.");
+      return;
+    }
 
-  // Enroll in unenrolled quests
-  for (const quest of allQuests) {
-    if (!quest.userStatus || !quest.userStatus.enrolledAt) {
-      const enrolled = await enrollInQuest(quest.id);
-      if (enrolled) {
-        // Refresh quests
-        quest.userStatus = {
-          enrolledAt: new Date().toISOString(),
-          progress: {},
-        };
+    const allQuests = [...QuestsStore.quests.values()].filter(
+      (q) =>
+        q?.config?.expiresAt &&
+        new Date(q.config.expiresAt).getTime() > Date.now()
+    );
+
+    if (allQuests.length === 0) {
+      console.log("No active quests found.");
+      return;
+    }
+
+    // Enroll in unenrolled quests serially
+    for (const quest of allQuests) {
+      console.log("Processing quest:", quest);
+      if (!quest.userStatus?.enrolledAt) {
+        const enrolled = await enrollInQuest(quest.id);
+        if (enrolled) {
+          quest.userStatus = {
+            enrolledAt: new Date().toISOString(),
+            progress: {},
+          };
+        }
+        // Slight delay to avoid spamming API
+        await sleep(500);
       }
     }
-  }
 
     // Complete enrolled but incomplete quests serially
     const incomplete = allQuests.filter(
