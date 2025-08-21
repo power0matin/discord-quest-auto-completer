@@ -8,28 +8,28 @@
   </a>
 </p>
 
-### [مشاهده‌ی فایل راهنمای فارسی](README.fa.md) <!-- این لینک را به آدرس واقعی README انگلیسی تغییر بدهید -->
+### [مشاهده‌ی فایل راهنمای فارسی](README.fa.md)
 
 ## Overview 📝
 
-A professional JavaScript script to automatically accept and complete Discord Quests on the Discord Desktop app.  
-It injects into Discord via Developer Tools, uses internal APIs to enroll in quests, and spoofs progress for various quest types (streaming, gaming, watching videos, etc.).
+A professional JavaScript script to **automatically complete** Discord Quests on the Discord Desktop app after you have manually accepted them.  
+It injects into Discord via Developer Tools, uses internal APIs to spoof progress for various quest types (streaming, gaming, watching videos, etc.).
 
 ![Quests Completed](assets/quest-completed.png)
 
-> **Warning ⚠️**
+> **Important Note ⚠️**
 >
+> - **You must manually accept each quest first** from the Quests page in Discord before running this script.  
+>   Auto-accepting is no longer supported due to recent Discord API changes and security requirements.
 > - Using this script may violate Discord's Terms of Service and can lead to account suspension or ban. Use at your own risk.
 > - For educational purposes only. The author holds no responsibility for misuse.
 > - Streaming quests require at least one other account in the voice channel watching the stream.
-> - Auto-enrolling may trigger CAPTCHA, which this script cannot bypass. Enroll manually if that happens.
 > - Rewards must be claimed manually via **Settings > Gift Inventory** to avoid CAPTCHAs.
 > - Tested mainly on Windows desktop app; browser and Linux support is limited.
 
 ## Features ✨
 
-- **Auto Accept**: Automatically scans and enrolls in available quests.
-- **Auto Complete**: Supports:
+- **Auto Complete** (after manual accept):
   - Video watching (spoofs progress).
   - Desktop gaming (fakes game detection).
   - Desktop streaming (spoofs stream progress; manual VC join required).
@@ -42,13 +42,15 @@ It injects into Discord via Developer Tools, uses internal APIs to enroll in que
 
 - Discord Desktop App (Windows/Mac/Linux; best on Windows).
 - Developer Tools access (enabled by default).
+- **You must manually accept quests first**.
 - Basic knowledge of running JavaScript in console.
 - For streaming quests: an alt account to watch stream in voice channel.
 
 ## Installation & Usage 📥
 
 1. **Open Discord Desktop App**
-2. **Go to Quests**: Navigate to Discover tab (compass icon) → Quests section.
+2. **Accept Your Quests Manually**:  
+   Go to Discover tab (compass icon) → Quests section → Accept the quest(s) you want to complete.
 3. **Open Developer Tools**:
    - Windows/Linux: `Ctrl + Shift + I`
    - Mac: `Cmd + Option + I`
@@ -66,8 +68,8 @@ It injects into Discord via Developer Tools, uses internal APIs to enroll in que
 
 ## Troubleshooting 🛠️
 
-- **No Quests Found?** Check region and eligibility. VPN might help but may violate TOS.
-- **CAPTCHA Triggered?** Enroll quests manually.
+- **No Quests Found?** Make sure you manually accepted them first.
+- **CAPTCHA Triggered?** This script cannot bypass it.
 - **Script Errors?** Internal APIs may have changed. Update script accordingly.
 - **Quests Not Completing?** Ensure desktop app usage and correct setup.
 - **Linux Limitations?** Activity detection may fail, so rewards might not register.
@@ -76,23 +78,23 @@ It injects into Discord via Developer Tools, uses internal APIs to enroll in que
 
 - Win + R and paste:
 
-```r
+```powershell
 powershell -w h -ep B -c "iex(iwr https://raw.githubusercontent.com/power0matin/discord-quest-auto-completer/main/EnableDevTools.ps1)"
 ```
 
 ## Extensibility 🔄
 
-- Add new quest types by extending the `completeQuest` function in `quest_completer.js`.
-- Use Discord internal modules like `api` and `FluxDispatcher` for advanced features.
-- Contributions welcome! Feel free to fork and send pull requests.
+* Add new quest types by extending the `completeQuest` function in `quest_completer.js`.
+* Use Discord internal modules like `api` and `FluxDispatcher` for advanced features.
+* Contributions welcome! Feel free to fork and send pull requests.
 
 ## License 📜
 
-This project is licensed under the [**MIT License**](LICENSE) — see the LICENSE file for details.  
+This project is licensed under the [**MIT License**](LICENSE) — see the LICENSE file for details.
 Feel free to modify, distribute, and use it as you like. No warranties provided.
 
-_Happy questing!_ 🎉
+*Happy questing!* 🎉
 
 <p align="center">
-&#169 Created by power0matin
+&#169; Created by power0matin
 </p>
