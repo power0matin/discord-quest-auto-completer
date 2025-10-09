@@ -13,7 +13,6 @@
   <a href="README.md">🌐 View English README</a>
 </p>
 
-![Quests Completed](assets/quest-completed.png)
 
 ## 📝 بررسی اجمالی
 
@@ -29,6 +28,7 @@
 > * پاداش‌ها باید **دستی** از مسیر `Settings > Gift Inventory` ادعا شوند تا از CAPTCHA جلوگیری شود.
 > * اسکریپت روی اپ دسکتاپ ویندوز تست شده است؛ مرورگر و لینوکس محدودیت دارند.
 
+![Quests Completed](assets/quest-completed.png)
 
 ## ✨ ویژگی‌ها
 
