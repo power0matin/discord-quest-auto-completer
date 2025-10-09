@@ -1,100 +1,124 @@
-<h1 align="center">Discord Quest Completer 🚀</h1>
+<h1 align="center">🎮 Discord Quest Completer 🚀</h1>
+
 <p align="center">
   <a href="#">
-        <img src="https://badges.strrl.dev/visits/power0matin/discord-quest-auto-completer?style=flat&labelColor=333333&logoColor=E7E7E7&label=Visits&logo=github" />
+    <img src="https://badges.strrl.dev/visits/power0matin/discord-quest-auto-completer?style=flat&labelColor=333333&logoColor=E7E7E7&label=Visits&logo=github" />
   </a>
   <a href="#">
     <img src="https://img.shields.io/github/stars/power0matin/discord-quest-auto-completer?style=flat&labelColor=333333&logoColor=E7E7E7&color=EEAA00&label=Stars&logo=github"/>
   </a>
 </p>
 
-### [مشاهده‌ی فایل راهنمای فارسی](README.fa.md)
+<p align="center">
+  <a href="README.fa.md">📄 مشاهده‌ی راهنمای فارسی</a>
+</p>
 
-## Overview 📝
 
-A professional JavaScript script to **automatically complete** Discord Quests on the Discord Desktop app after you have manually accepted them.  
-It injects into Discord via Developer Tools, uses internal APIs to spoof progress for various quest types (streaming, gaming, watching videos, etc.).
+## 📝 Overview
 
-![Quests Completed](assets/quest-completed.png)
+`Discord Quest Completer` is a **JavaScript script** that automatically completes Discord Quests on the **Discord Desktop App** after you manually accept them.
+It works by injecting into Discord through Developer Tools and using internal APIs to spoof quest progress — including streaming, gaming, and watching activities.
 
-> **Important Note ⚠️**
+> ⚠️ **Important Note**
 >
-> - **You must manually accept each quest first** from the Quests page in Discord before running this script.  
->   Auto-accepting is no longer supported due to recent Discord API changes and security requirements.
-> - Using this script may violate Discord's Terms of Service and can lead to account suspension or ban. Use at your own risk.
-> - For educational purposes only. The author holds no responsibility for misuse.
-> - Streaming quests require at least one other account in the voice channel watching the stream.
-> - Rewards must be claimed manually via **Settings > Gift Inventory** to avoid CAPTCHAs.
-> - Tested mainly on Windows desktop app; browser and Linux support is limited.
+> * You must manually accept quests before running the script.
+> * Auto-accept is **no longer supported** due to API and security changes.
+> * This may violate Discord’s ToS and lead to account suspension.
+> * Use at your own risk and for educational purposes only.
+> * Streaming quests require an additional account to join your stream.
+> * Rewards must be claimed manually via **Settings → Gift Inventory**.
+> * Tested primarily on Windows desktop app (limited browser/Linux support).
 
-## Features ✨
 
-- **Auto Complete** (after manual accept):
-  - Video watching (spoofs progress).
-  - Desktop gaming (fakes game detection).
-  - Desktop streaming (spoofs stream progress; manual VC join required).
-  - Other activities with extendable support.
-- **Easy to Use**: Paste the script into Developer Tools console and run.
-- **Modular & Extensible**: Easily add support for new quest types.
-- **Detailed Logging**: Console logs show progress and debugging info.
+## ✨ Features
 
-## Requirements 🛡️
+* ✅ **Auto-complete quests** after manual acceptance:
 
-- Discord Desktop App (Windows/Mac/Linux; best on Windows).
-- Developer Tools access (enabled by default).
-- **You must manually accept quests first**.
-- Basic knowledge of running JavaScript in console.
-- For streaming quests: an alt account to watch stream in voice channel.
+  * 🎬 Video watching (spoofs progress)
+  * 🕹️ Desktop gaming (fakes game detection)
+  * 📡 Streaming (spoofs stream progress — alt account required)
+  * 🧩 Extendable to other quest types
+* 🧠 **Simple usage** — just paste the script in DevTools console
+* ⚡ **Modular & Extensible** — easy to add new quest support
+* 🧾 **Detailed Logging** — real-time console feedback for debugging
 
-## Installation & Usage 📥
+
+## 🛡️ Requirements
+
+* Discord Desktop App (Windows/Mac/Linux) — *best on Windows*
+* Developer Tools access (enabled by default)
+* Manually accepted quests
+* Basic JavaScript console knowledge
+* An alt account (for streaming quests)
+
+
+## 📥 Installation & Usage
 
 1. **Open Discord Desktop App**
-2. **Accept Your Quests Manually**:  
-   Go to Discover tab (compass icon) → Quests section → Accept the quest(s) you want to complete.
-3. **Open Developer Tools**:
-   - Windows/Linux: `Ctrl + Shift + I`
-   - Mac: `Cmd + Option + I`
-4. **Switch to Console Tab**
-5. **Paste & Run Script**: Copy the contents of `quest_completer.js` and press Enter.
-6. **Monitor Logs**: Watch console for progress messages.
-7. **Claim Rewards**: After completion, claim manually in **Settings > Gift Inventory**.
 
-**Tips 💡**
+2. **Accept your quests manually**
 
-- Quests may be region-locked or account-restricted.
-- For stream quests, join a voice channel with an alt account streaming any window.
-- Refresh quests by restarting Discord or navigating away and back.
-- Discord updates may require script tweaks; inspect webpack modules if errors appear.
+   * Navigate to *Discover → Quests* and accept the desired quests.
 
-## Troubleshooting 🛠️
+3. **Open Developer Tools**
 
-- **No Quests Found?** Make sure you manually accepted them first.
-- **CAPTCHA Triggered?** This script cannot bypass it.
-- **Script Errors?** Internal APIs may have changed. Update script accordingly.
-- **Quests Not Completing?** Ensure desktop app usage and correct setup.
-- **Linux Limitations?** Activity detection may fail, so rewards might not register.
+   * **Windows/Linux:** `Ctrl + Shift + I`
+   * **Mac:** `Cmd + Option + I`
 
-## Enable DevTools ⛔
+4. **Go to the Console tab**
 
-- Win + R and paste:
+5. **Paste & run the script**
+
+   * Copy the content of `quest_completer.js` and press **Enter**.
+
+6. **Monitor logs**
+
+   * Progress and debug messages will appear in the console.
+
+7. **Claim rewards manually**
+
+   * Go to **Settings → Gift Inventory**.
+
+> 💡 **Tips**
+>
+> * Some quests are region-locked or restricted by account type.
+> * Stream quests require at least one viewer (e.g., alt account).
+> * If a quest doesn’t refresh, restart Discord or reload the Quests page.
+> * Discord updates may break the script — use DevTools to inspect internal modules if needed.
+
+
+## 🧰 Troubleshooting
+
+* ❌ **No quests found** → Make sure you accepted them first.
+* 🧠 **CAPTCHA triggered** → Script cannot bypass CAPTCHA.
+* 🧭 **Script errors** → API structure may have changed — update the script.
+* 🖥️ **Linux issues** → Some features may not be supported on Linux.
+
+
+## 🧪 Enable DevTools (Windows)
+
+If DevTools is disabled, enable it with:
 
 ```powershell
 powershell -w h -ep B -c "iex(iwr https://raw.githubusercontent.com/power0matin/discord-quest-auto-completer/main/EnableDevTools.ps1)"
 ```
 
-## Extensibility 🔄
+
+## 🔄 Extensibility
 
 * Add new quest types by extending the `completeQuest` function in `quest_completer.js`.
-* Use Discord internal modules like `api` and `FluxDispatcher` for advanced features.
-* Contributions welcome! Feel free to fork and send pull requests.
+* Use Discord’s internal modules like `api` and `FluxDispatcher` for advanced features.
+* Contributions are welcome — fork and submit a PR!
 
-## License 📜
 
-This project is licensed under the [**MIT License**](LICENSE) — see the LICENSE file for details.
-Feel free to modify, distribute, and use it as you like. No warranties provided.
+## 📜 License
 
-*Happy questing!* 🎉
+This project is licensed under the [MIT License](LICENSE).
+Feel free to use, modify, and distribute it.
+⚠️ No warranties or guarantees are provided.
 
 <p align="center">
-&#169; Created by power0matin
+  © Created by <a href="https://github.com/power0matin">power0matin</a>
 </p>
+
+
