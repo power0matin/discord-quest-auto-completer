@@ -15,7 +15,7 @@
 
 
 ## 📝 Overview
-
+ 
 `Discord Quest Completer` is a **JavaScript script** that automatically completes Discord Quests on the **Discord Desktop App** after you manually accept them.
 It works by injecting into Discord through Developer Tools and using internal APIs to spoof quest progress — including streaming, gaming, and watching activities.
 
