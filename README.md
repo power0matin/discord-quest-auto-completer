@@ -29,6 +29,7 @@ It works by injecting into Discord through Developer Tools and using internal AP
 > * Rewards must be claimed manually via **Settings → Gift Inventory**.
 > * Tested primarily on Windows desktop app (limited browser/Linux support).
 
+![Quests Completed](assets/quest-completed.png)
 
 ## ✨ Features
 
