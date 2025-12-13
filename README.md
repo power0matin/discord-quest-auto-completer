@@ -118,6 +118,15 @@ This project is licensed under the [MIT License](LICENSE).
 Feel free to use, modify, and distribute it.
 ⚠️ No warranties or guarantees are provided.
 
+## 📬 Contact
+
+**Matin Shahabadi (متین شاه‌آبادی / متین شاه آبادی)**
+
+* Website: [matinshahabadi.ir](https://matinshahabadi.ir)
+* Email: [me@matinshahabadi.ir](mailto:me@matinshahabadi.ir)
+* GitHub: [power0matin](https://github.com/power0matin)
+* LinkedIn: [matin-shahabadi](https://www.linkedin.com/in/matin-shahabadi)
+
 <p align="center">
   © Created by <a href="https://github.com/power0matin">power0matin</a>
 </p>
