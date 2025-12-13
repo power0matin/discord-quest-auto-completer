@@ -90,6 +90,15 @@
 * از ماژول‌های داخلی دیسکورد مانند `api` و `FluxDispatcher` برای امکانات پیشرفته استفاده کنید.
 * مشارکت آزاد است — فورک کنید و Pull Request بفرستید 🚀
 
+## 📬 ارتباط با من
+
+**Matin Shahabadi (متین شاه‌آبادی / متین شاه آبادی)**
+
+ وب‌سایت: [matinshahabadi.ir](https://matinshahabadi.ir)
+* ایمیل: [me@matinshahabadi.ir](mailto:me@matinshahabadi.ir)
+* گیت‌هاب: [power0matin](https://github.com/power0matin)
+* لینکدین: [matin-shahabadi](https://www.linkedin.com/in/matin-shahabadi)
+
 
 ## 📜 لایسنس
 
