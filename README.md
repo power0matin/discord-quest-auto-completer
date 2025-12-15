@@ -127,6 +127,8 @@ Feel free to use, modify, and distribute it.
 * GitHub: [power0matin](https://github.com/power0matin)
 * LinkedIn: [matin-shahabadi](https://www.linkedin.com/in/matin-shahabadi)
 
+[![Stargazers over time](https://starchart.cc/power0matin/discord-quest-auto-completer.svg?variant=adaptive)](https://starchart.cc/power0matin/discord-quest-auto-completer)
+
 <p align="center">
   © Created by <a href="https://github.com/power0matin">power0matin</a>
 </p>
