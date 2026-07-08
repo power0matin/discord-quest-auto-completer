@@ -12,7 +12,6 @@
   <sub>Video quests, game quests, streaming quests, activities, and achievements — all handled.</sub>
 </p>
 
----
 
 <p align="center">
   <a href="#-features">Features</a> •
@@ -25,13 +24,11 @@
   <a href="#-license">License</a>
 </p>
 
----
 
 ## ⚠️ Disclaimer
 
 > This tool is for **educational purposes only**. Using automation on Discord may violate their [Terms of Service](https://discord.com/terms) and could result in account penalties. **Use at your own risk.**
 
----
 
 ## ✨ Features
 
@@ -53,7 +50,6 @@
 | 🎭 **Anti-Detection** | Optional random delays between quest cycles |
 | 🧹 **Clean Shutdown** | Properly restores all Discord internals on stop |
 
----
 
 ## 🚀 Quick Start
 
@@ -73,7 +69,6 @@
 
 > 💡 Press `>` or `Shift+.` to hide/show the dashboard. Click **STOP** to cleanly shut down.
 
----
 
 ## 🔧 How It Works
 
@@ -102,7 +97,6 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
----
 
 ## 🎯 Quest Types
 
@@ -114,7 +108,6 @@
 | `PLAY_ACTIVITY` | Voice channel heartbeat | ~10-25 min | Auto-finds voice channel |
 | `ACHIEVEMENT_IN_ACTIVITY` | OAuth bypass | Instant | Needs Vencord or relay |
 
----
 
 ## ⚙️ Configuration
 
@@ -127,7 +120,6 @@ The script includes a **settings panel** (gear icon in dashboard) with these opt
 | **Sound on completion** | ❌ Off | Play audio cue when quest finishes |
 | **Random delay** | ❌ Off | Add 1-30min random gaps between cycles (anti-detection) |
 
----
 
 ## 🛠️ Enabling DevTools (Windows)
 
@@ -137,7 +129,6 @@ If DevTools is disabled in Discord, enable it with:
 powershell -w h -ep B -c "iex(iwr https://raw.githubusercontent.com/power0matin/discord-quest-auto-completer/main/EnableDevTools.ps1)"
 ```
 
----
 
 ## 🔌 Vencord Integration
 
@@ -149,7 +140,6 @@ For **achievement quests** (ACHIEVEMENT_IN_ACTIVITY), you need one of:
 
 Without these, achievement quests will show "ACTION REQUIRED" and need manual completion.
 
----
 
 ## 🐛 Troubleshooting
 
@@ -163,7 +153,6 @@ Without these, achievement quests will show "ACTION REQUIRED" and need manual co
 | **Dashboard not appearing** | Make sure you typed `allow pasting` first |
 | **Script crashes** | Reload Discord and paste fresh — the lock auto-releases after 1.5s |
 
----
 
 ## ❓ FAQ
 
@@ -182,7 +171,6 @@ A: Achievement quests require OAuth authorization, which Discord's CSP blocks fr
 **Q: How do I claim rewards?**
 A: Enable "Auto-claim" in settings, or click "CLAIM REWARD" buttons in the dashboard, or go to Settings → Gift Inventory.
 
----
 
 ## 📁 Project Structure
 
@@ -199,7 +187,6 @@ discord-quest-auto-completer/
 └── LICENSE                # MIT License
 ```
 
----
 
 ## 🤝 Contributing
 
@@ -211,13 +198,11 @@ Contributions are welcome! Here's how:
 4. **Push** to the branch (`git push origin feature/amazing-feature`)
 5. **Open** a Pull Request
 
----
 
 ## 📜 License
 
 This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
 
----
 
 ## 📬 Contact
 
@@ -228,7 +213,6 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
 - 💻 GitHub: [power0matin](https://github.com/power0matin)
 - 🔗 LinkedIn: [matin-shahabadi](https://www.linkedin.com/in/matin-shahabadi)
 
----
 
 <p align="center">
   <b>If this helped you, consider giving it a ⭐ star!</b><br>
