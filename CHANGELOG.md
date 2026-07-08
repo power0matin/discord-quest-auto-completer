@@ -1,69 +1,70 @@
 # Changelog
+
 All notable changes to this repository are documented in this file.
 
-The format is inspired by Keep a Changelog, and versioning follows SemVer where practical.
+The format is inspired by [Keep a Changelog](https://keepachangelog.com/), and versioning follows [SemVer](https://semver.org/) where practical.
 
 ## [Unreleased]
+
 ### Notes
 - Changes on `main` after the last tag will appear here until the next release.
 
-## [v0.1.1] — 2025-12-14
+## [v1.0.0] — 2026-07-08
+
 ### Added
-- Added `SECURITY.md` for private vulnerability reporting guidelines, scope, and disclosure expectations
-- Added `CHANGELOG.md` to track notable changes and improve release traceability
+- **QuestMaster** — Complete rewrite with full visual dashboard
+- **Draggable UI** — Real-time task cards with progress bars and circular indicators
+- **Quest Picker** — Select which quests to complete with reward/type filters
+- **Auto-enrollment** — Automatically accepts quests before completing
+- **Auto-claim** — Claims rewards automatically when quests finish
+- **Multiple quest type support:**
+  - `WATCH_VIDEO` — Fast video-progress spoofing (~2-4 min)
+  - `PLAY_ON_DESKTOP` — Fake game process injection + heartbeat
+  - `STREAM_ON_DESKTOP` — Stream key spoofing
+  - `PLAY_ACTIVITY` — Voice channel heartbeat loop
+  - `ACHIEVEMENT_IN_ACTIVITY` — OAuth bypass flow (Vencord/relay required)
+- **Rate limit handling** — Smart retry with exponential backoff and jitter
+- **Error classification** — Retryable vs permanent errors with automatic recovery
+- **Request queue** — FIFO queue with rate-limit-aware processing
+- **Store patching** — Monkey-patches Discord's RunningGameStore for game spoofing
+- **Sound cues** — Optional audio feedback on completion
+- **Browser notifications** — Desktop notifications when quests finish
+- **OAuth consent gate** — Informed consent before authorizing third-party apps
+- **Settings panel** — Toggle auto-enroll, auto-claim, sound, random delay
+- **Keyboard shortcuts** — `>` or `Shift+.` to toggle dashboard visibility
+- **Clean shutdown** — Properly restores all Discord internals on stop
+- **Anti-detection mode** — Optional randomized delays between quest cycles
+- **Webpack module extraction** — Stable discriminator-based store discovery
+- **Vencord integration** — Uses Vencord Webpack API when available
+- **Farsi README** — Complete Persian documentation
+
+### Changed
+- Replaced simple console script with full-featured visual dashboard
+- Improved quest type detection with flexible key matching
+- Enhanced error handling with proper HTTP status classification
+- Updated Discord API interaction patterns for latest client version
+
+### Fixed
+- Token extraction now works with Discord's updated webpack structure
+- Quest data fields updated to match Discord's snake_case API response
+- Rate limit handling prevents account-level blocks
+- Enrollment body format corrected for latest API
+
+## [v0.1.1] — 2025-12-14
+
+### Added
+- Added `SECURITY.md` for private vulnerability reporting guidelines
+- Added `CHANGELOG.md` to track notable changes
 
 ### Notes
-- Documentation-only release; no runtime or functional changes.
+- Documentation-only release; no runtime changes.
 
 ## [v0.1.0] — 2025-12-13
-### Documentation
-- Added license information to `README.fa.md`
-- Added contact information and a license section to `README.md`
-- Added a dedicated contact section to `README.md`
-
-### Notes
-- This release is primarily a documentation and project-metadata hardening release.
-
-
-## 2025-10-09
-### Documentation
-- Improved Farsi README structure and readability
-- Improved English README structure
-- Polished Farsi README formatting and structure (multiple commits)
-- Polished English README formatting and structure
-
-## 2025-08-21
-### Changed
-- Improved and optimized the quest completion script (`quest_completer.js`)
-- Reverted to an older script version (“back to old version😂”)
-
-### Maintenance
-- Synced with upstream (`Merge branch 'main' ...`)
-
-## 2025-08-15
-### Documentation
-- Updated `README.md`
-- Updated `README.fa.md`
-
-## 2025-08-14
-### Changed
-- Updated `quest_completer.js`
-
-## 2025-08-11
-### Documentation
-- Updated `README.fa.md`
-
-## 2025-08-09
-### Added
-- Initial commit
-- Added `README.md` and created `README.fa.md`
-- Added `EnableDevTools.ps1`
-- Added documentation image `quest-completed.png`
 
 ### Documentation
-- Multiple README updates and formatting improvements
-- Improved README header and overall presentation
+- Added license information to READMEs
+- Added contact information
 
-## Release links
-- Compare: `v0.1.1` → `HEAD`: https://github.com/power0matin/discord-quest-auto-completer/compare/v0.1.1...main
+## Release Links
+- Compare: `v0.1.1` → `v1.0.0`: https://github.com/power0matin/discord-quest-auto-completer/compare/v0.1.1...v1.0.0
 - Compare: `v0.1.0` → `v0.1.1`: https://github.com/power0matin/discord-quest-auto-completer/compare/v0.1.0...v0.1.1
