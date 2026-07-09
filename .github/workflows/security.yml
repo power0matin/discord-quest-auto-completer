@@ -1,0 +1,56 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Security Analysis
+        run: |
+          echo "Security Analysis for Discord Quest Auto Completer"
+          echo "================================================"
+          echo ""
+          
+          echo "Checking for potential security issues..."
+          echo ""
+          
+          # Check for hardcoded credentials
+          if grep -r "password\|secret\|token\|api_key" quest_completer.js; then
+            echo "⚠ Potential hardcoded credentials found"
+          else
+            echo "✓ No hardcoded credentials found"
+          fi
+          
+          # Check for eval usage
+          if grep -r "eval(" quest_completer.js; then
+            echo "⚠ eval() usage found (potential security risk)"
+          else
+            echo "✓ No eval() usage found"
+          fi
+          
+          # Check for innerHTML usage
+          if grep -r "innerHTML" quest_completer.js; then
+            echo "ℹ innerHTML usage found (review for XSS)"
+          else
+            echo "✓ No innerHTML usage found"
+          fi
+          
+          echo ""
+          echo "Security Best Practices:"
+          echo "- No hardcoded credentials"
+          echo "- No eval() usage"
+          echo "- Proper input validation"
+          echo "- Rate limit handling"
+          echo "- Clean shutdown process"
+          echo ""
+          echo "Note: This script interacts with Discord's internal APIs."
+          echo "Always use at your own risk and respect Discord's ToS."

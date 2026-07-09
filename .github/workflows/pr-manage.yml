@@ -1,0 +1,90 @@
+name: Pull Request Management
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  manage-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process Pull Request
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const action = context.payload.action;
+            
+            console.log(`PR ${action}: ${pr.title}`);
+            console.log(`Number: ${pr.number}`);
+            console.log(`Files changed: ${pr.changed_files}`);
+            console.log(`Additions: ${pr.additions}`);
+            console.log(`Deletions: ${pr.deletions}`);
+            
+            // Auto-label based on title
+            const labels = [];
+            
+            if (pr.title.toLowerCase().includes('bug')) {
+              labels.push('bug');
+            }
+            
+            if (pr.title.toLowerCase().includes('feature')) {
+              labels.push('enhancement');
+            }
+            
+            if (pr.title.toLowerCase().includes('documentation')) {
+              labels.push('documentation');
+            }
+            
+            if (pr.title.toLowerCase().includes('refactor')) {
+              labels.push('refactoring');
+            }
+            
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: labels
+              });
+              console.log(`Added labels: ${labels.join(', ')}`);
+            }
+            
+            // Add welcome message for new PRs
+            if (action === 'opened') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: `Thank you for contributing to the Discord Quest Auto Completer!
+            
+            Please make sure your PR:
+            
+            1. **Follows the code style** of the project
+            2. **Includes tests** if applicable
+            3. **Updates documentation** if needed
+            4. **Has a clear description** of the changes
+            
+            ### Checklist
+            
+            - [ ] Code follows the style guidelines
+            - [ ] Self-review completed
+            - [ ] Comments added for complex logic
+            - [ ] Documentation updated
+            - [ ] Tests added/updated
+            - [ ] All tests pass
+            
+            Thank you for helping improve the project!`
+              });
+            }
+            
+            // Check for merge conflicts
+            if (action === 'synchronize') {
+              const files = await github.rest.pulls.listFiles({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              console.log(`Files in PR: ${files.data.map(f => f.filename).join(', ')}`);
+            }

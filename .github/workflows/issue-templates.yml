@@ -1,0 +1,65 @@
+name: Issue Templates
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  apply-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process New Issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            
+            console.log(`New issue: ${issue.title}`);
+            
+            // Check if issue has enough information
+            const hasDescription = issue.body && issue.body.length > 50;
+            const hasReproductionSteps = issue.body && issue.body.includes('steps');
+            const hasEnvironment = issue.body && issue.body.includes('OS');
+            
+            if (!hasDescription) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Thank you for opening an issue! 
+                
+                To help us resolve this quickly, could you please provide more details?
+                
+                **Please include:**
+                - A clear description of the problem
+                - Steps to reproduce (if applicable)
+                - Expected vs actual behavior
+                - Your environment (OS, Discord version)
+                
+                This will help us understand and fix the issue faster.`
+              });
+            }
+            
+            // Add appropriate labels
+            const labels = [];
+            
+            if (issue.title.toLowerCase().includes('bug')) {
+              labels.push('bug');
+            }
+            
+            if (issue.title.toLowerCase().includes('feature')) {
+              labels.push('enhancement');
+            }
+            
+            if (issue.title.toLowerCase().includes('question')) {
+              labels.push('question');
+            }
+            
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labels
+              });
+            }

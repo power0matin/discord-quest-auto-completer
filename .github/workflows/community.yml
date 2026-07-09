@@ -1,0 +1,57 @@
+name: Community Management
+
+on:
+  issues:
+    types: [opened, edited, closed]
+  pull_request:
+    types: [opened, edited, closed]
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Welcome new contributors
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const pr = context.payload.pull_request;
+            
+            if (issue) {
+              console.log(`New issue opened: ${issue.title}`);
+            }
+            
+            if (pr) {
+              console.log(`New PR opened: ${pr.title}`);
+            }
+
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-label issues
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const labels = [];
+            
+            if (issue.title.toLowerCase().includes('bug')) {
+              labels.push('bug');
+            }
+            
+            if (issue.title.toLowerCase().includes('feature')) {
+              labels.push('enhancement');
+            }
+            
+            if (issue.title.toLowerCase().includes('question')) {
+              labels.push('question');
+            }
+            
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labels
+              });
+            }

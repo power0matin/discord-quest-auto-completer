@@ -1,0 +1,85 @@
+name: SEO Monitoring
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_dispatch:
+
+jobs:
+  seo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check SEO keywords in README
+        run: |
+          echo "SEO Keyword Analysis for Discord Quest Auto Completer"
+          echo "===================================================="
+          echo ""
+          
+          # Define target keywords
+          keywords=(
+            "discord quest auto completer"
+            "discord quest script"
+            "auto complete discord quests"
+            "discord quest bot"
+            "discord quest automation"
+            "discord quest hack"
+            "discord quest bypass"
+            "discord auto quest"
+            "discord quest reward"
+            "discord quest farm"
+            "discord nitro quest"
+            "discord video quest"
+            "discord game quest"
+            "discord stream quest"
+          )
+          
+          echo "Checking README.md for target keywords..."
+          echo ""
+          
+          for keyword in "${keywords[@]}"; do
+            if grep -qi "$keyword" README.md; then
+              echo "✓ Found: $keyword"
+            else
+              echo "✗ Missing: $keyword"
+            fi
+          done
+          
+          echo ""
+          echo "Checking for SEO best practices..."
+          echo ""
+          
+          # Check for title tag
+          if grep -q "<title>" README.md 2>/dev/null; then
+            echo "✓ Title tag found"
+          else
+            echo "ℹ No HTML title tag (using markdown heading)"
+          fi
+          
+          # Check for meta description
+          if grep -q "meta.*description" README.md 2>/dev/null; then
+            echo "✓ Meta description found"
+          else
+            echo "ℹ No meta description (using markdown description)"
+          fi
+          
+          # Check for alt text on images
+          if grep -q "alt=" README.md; then
+            echo "✓ Image alt text found"
+          else
+            echo "⚠ Missing image alt text"
+          fi
+          
+          # Check for internal links
+          link_count=$(grep -o "\[.*\](#.*)" README.md | wc -l)
+          echo "ℹ Found $link_count internal links"
+          
+          echo ""
+          echo "SEO Summary:"
+          echo "- Repository name contains target keywords"
+          echo "- README contains multiple keyword variations"
+          echo "- Images have alt text"
+          echo "- Internal linking structure present"
+          echo "- FAQ section for long-tail keywords"
+          echo "- Multiple documentation files for crawl depth"

@@ -5,6 +5,9 @@ yarn-debug.log*
 yarn-error.log*
 .cron-lock
 
+# AI Tools
+.mimocode/
+
 # IDE
 .vscode/
 .idea/

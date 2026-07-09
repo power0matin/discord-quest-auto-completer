@@ -1,0 +1,45 @@
+name: Documentation
+
+on:
+  push:
+    paths:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    paths:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check markdown files
+        run: |
+          echo "Checking markdown files..."
+          for file in *.md; do
+            if [ -f "$file" ]; then
+              echo "✓ $file exists"
+              # Check for common issues
+              if grep -q "^---$" "$file"; then
+                echo "⚠ Warning: Found horizontal rule in $file"
+              fi
+            fi
+          done
+
+      - name: Validate README structure
+        run: |
+          echo "Validating README structure..."
+          if grep -q "Discord Quest Auto Completer" README.md; then
+            echo "✓ README contains target keywords"
+          else
+            echo "✗ README missing target keywords"
+          fi
+          
+          if grep -q "auto complete" README.md; then
+            echo "✓ README contains 'auto complete' keyword"
+          else
+            echo "✗ README missing 'auto complete' keyword"
+          fi

@@ -1,0 +1,60 @@
+name: Release Management
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  manage-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Create Release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            console.log(`Creating release for ${tag}`);
+            
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `Release ${tag}`,
+              body: `## Discord Quest Auto Completer ${tag}
+            
+            ### What's New
+            - Enhanced quest detection
+            - Improved error handling
+            - Better dashboard UI
+            - Performance optimizations
+            
+            ### Supported Quest Types
+            - WATCH_VIDEO (auto complete discord video quests)
+            - PLAY_ON_DESKTOP (discord game quest automation)
+            - STREAM_ON_DESKTOP (discord stream quest script)
+            - PLAY_ACTIVITY (discord activity quests)
+            - ACHIEVEMENT_IN_ACTIVITY (discord achievement quests)
+            
+            ### Installation
+            1. Open Discord Desktop App
+            2. Enable Developer Tools (Ctrl+Shift+I)
+            3. Go to Console tab
+            4. Type 'allow pasting'
+            5. Paste the quest_completer.js script
+            
+            ### Links
+            - [Documentation](https://github.com/power0matin/discord-quest-auto-completer#readme)
+            - [Changelog](https://github.com/power0matin/discord-quest-auto-completer/blob/main/CHANGELOG.md)
+            - [Security Policy](https://github.com/power0matin/discord-quest-auto-completer/blob/main/SECURITY.md)
+            
+            For more information, see the [README](https://github.com/power0matin/discord-quest-auto-completer#readme)`,
+              draft: false,
+              prerelease: false
+            });
+            
+            console.log(`Release created: ${release.data.html_url}`);

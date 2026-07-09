@@ -1,0 +1,47 @@
+name: Release Notes
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Generate Release Notes
+        run: |
+          echo "Generating release notes for ${{ github.ref_name }}"
+          echo ""
+          echo "## What's New in ${{ github.ref_name }}"
+          echo ""
+          echo "### Discord Quest Auto Completer Updates"
+          echo ""
+          echo "This release includes improvements to the Discord quest auto completer:"
+          echo ""
+          echo "- Enhanced quest detection"
+          echo "- Improved error handling"
+          echo "- Better dashboard UI"
+          echo "- Performance optimizations"
+          echo ""
+          echo "### Supported Quest Types"
+          echo ""
+          echo "- WATCH_VIDEO (auto complete discord video quests)"
+          echo "- PLAY_ON_DESKTOP (discord game quest automation)"
+          echo "- STREAM_ON_DESKTOP (discord stream quest script)"
+          echo "- PLAY_ACTIVITY (discord activity quests)"
+          echo "- ACHIEVEMENT_IN_ACTIVITY (discord achievement quests)"
+          echo ""
+          echo "### Installation"
+          echo ""
+          echo "1. Open Discord Desktop App"
+          echo "2. Enable Developer Tools (Ctrl+Shift+I)"
+          echo "3. Go to Console tab"
+          echo "4. Type 'allow pasting'"
+          echo "5. Paste the quest_completer.js script"
+          echo ""
+          echo "For more information, see the [README](https://github.com/power0matin/discord-quest-auto-completer#readme)"

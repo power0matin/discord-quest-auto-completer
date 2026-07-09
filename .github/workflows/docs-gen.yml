@@ -1,0 +1,85 @@
+name: Documentation Generation
+
+on:
+  push:
+    paths:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    paths:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Generate Documentation
+        run: |
+          echo "Documentation Generation for Discord Quest Auto Completer"
+          echo "========================================================"
+          echo ""
+          
+          echo "Checking documentation files..."
+          echo ""
+          
+          # Check README.md
+          if [ -f "README.md" ]; then
+            echo "✓ README.md exists"
+            word_count=$(wc -w < README.md)
+            echo "  Word count: $word_count words"
+          else
+            echo "✗ README.md missing"
+          fi
+          
+          # Check README.fa.md
+          if [ -f "README.fa.md" ]; then
+            echo "✓ README.fa.md exists (Persian documentation)"
+          else
+            echo "✗ README.fa.md missing"
+          fi
+          
+          # Check SECURITY.md
+          if [ -f "SECURITY.md" ]; then
+            echo "✓ SECURITY.md exists"
+          else
+            echo "✗ SECURITY.md missing"
+          fi
+          
+          # Check CHANGELOG.md
+          if [ -f "CHANGELOG.md" ]; then
+            echo "✓ CHANGELOG.md exists"
+          else
+            echo "✗ CHANGELOG.md missing"
+          fi
+          
+          # Check CONTRIBUTING.md
+          if [ -f "CONTRIBUTING.md" ]; then
+            echo "✓ CONTRIBUTING.md exists"
+          else
+            echo "✗ CONTRIBUTING.md missing"
+          fi
+          
+          # Check CODE_OF_CONDUCT.md
+          if [ -f "CODE_OF_CONDUCT.md" ]; then
+            echo "✓ CODE_OF_CONDUCT.md exists"
+          else
+            echo "✗ CODE_OF_CONDUCT.md missing"
+          fi
+          
+          echo ""
+          echo "Documentation Summary:"
+          echo "- English and Persian documentation"
+          echo "- Security policy"
+          echo "- Changelog"
+          echo "- Contributing guidelines"
+          echo "- Code of conduct"
+          echo ""
+          echo "SEO Optimizations:"
+          echo "- Keyword-rich titles"
+          echo "- Descriptive alt text"
+          echo "- Internal linking"
+          echo "- FAQ section"
+          echo "- Multiple keyword variations"

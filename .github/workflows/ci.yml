@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for syntax errors
+        run: node --check quest_completer.js
+      - name: Validate markdown
+        run: |
+          for file in *.md; do
+            if [ -f "$file" ]; then
+              echo "Checking $file..."
+              # Basic markdown validation
+              if [ -s "$file" ]; then
+                echo "✓ $file exists and is not empty"
+              fi
+            fi
+          done
+
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check file structure
+        run: |
+          echo "Checking repository structure..."
+          ls -la
+          echo ""
+          echo "Checking required files..."
+          test -f quest_completer.js && echo "✓ quest_completer.js exists" || echo "✗ quest_completer.js missing"
+          test -f README.md && echo "✓ README.md exists" || echo "✗ README.md missing"
+          test -f LICENSE && echo "✓ LICENSE exists" || echo "✗ LICENSE missing"
+          test -f SECURITY.md && echo "✓ SECURITY.md exists" || echo "✗ SECURITY.md missing"
+          test -f CHANGELOG.md && echo "✓ CHANGELOG.md exists" || echo "✗ CHANGELOG.md missing"

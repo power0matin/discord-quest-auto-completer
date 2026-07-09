@@ -1,0 +1,62 @@
+name: Community Engagement
+
+on:
+  issues:
+    types: [opened, closed]
+  pull_request:
+    types: [opened, closed]
+
+jobs:
+  engage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Track Community Metrics
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const pr = context.payload.pull_request;
+            
+            if (issue) {
+              console.log(`Issue ${issue.state}: ${issue.title}`);
+              console.log(`Labels: ${issue.labels.map(l => l.name).join(', ')}`);
+            }
+            
+            if (pr) {
+              console.log(`PR ${pr.state}: ${pr.title}`);
+              console.log(`Files changed: ${pr.changed_files}`);
+            }
+
+      - name: Update Repository Stats
+        run: |
+          echo "Repository Statistics for Discord Quest Auto Completer"
+          echo "=================================================="
+          echo ""
+          echo "Documentation Files:"
+          echo "- README.md (English)"
+          echo "- README.fa.md (Persian)"
+          echo "- SECURITY.md"
+          echo "- CHANGELOG.md"
+          echo "- CONTRIBUTING.md"
+          echo "- CODE_OF_CONDUCT.md"
+          echo ""
+          echo "GitHub Templates:"
+          echo "- Bug Report Template"
+          echo "- Feature Request Template"
+          echo "- Pull Request Template"
+          echo ""
+          echo "Workflows:"
+          echo "- CI (linting and validation)"
+          echo "- Release automation"
+          echo "- Documentation validation"
+          echo "- SEO monitoring"
+          echo "- Community management"
+          echo "- Security scanning"
+          echo ""
+          echo "SEO Features:"
+          echo "- Keyword-rich content"
+          echo "- Multiple documentation files"
+          echo "- Internal linking structure"
+          echo "- FAQ section"
+          echo "- Alt text on images"
+          echo "- Descriptive titles"

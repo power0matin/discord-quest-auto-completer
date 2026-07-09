@@ -1,0 +1,64 @@
+name: PR Templates
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  apply-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process New PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            console.log(`New PR: ${pr.title}`);
+            
+            // Check if PR has enough information
+            const hasDescription = pr.body && pr.body.length > 50;
+            const hasChecklist = pr.body && pr.body.includes('checklist');
+            
+            if (!hasDescription) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: `Thank you for your contribution!
+                
+                To help us review your PR, could you please provide more details?
+                
+                **Please include:**
+                - A clear description of the changes
+                - The problem being solved
+                - Testing steps
+                - Any breaking changes
+                
+                Also, please fill out the checklist in the PR template.`
+              });
+            }
+            
+            // Add appropriate labels
+            const labels = [];
+            
+            if (pr.title.toLowerCase().includes('bug')) {
+              labels.push('bug');
+            }
+            
+            if (pr.title.toLowerCase().includes('feature')) {
+              labels.push('enhancement');
+            }
+            
+            if (pr.title.toLowerCase().includes('documentation')) {
+              labels.push('documentation');
+            }
+            
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: labels
+              });
+            }

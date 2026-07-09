@@ -1,0 +1,76 @@
+name: Release Notes Generation
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  generate-release-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Generate Release Notes
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            console.log(`Generating release notes for ${tag}`);
+            
+            // Get commits since last tag
+            const commits = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: tag,
+              per_page: 10
+            });
+            
+            console.log(`Found ${commits.data.length} commits`);
+            
+            // Generate release notes
+            let notes = `## Discord Quest Auto Completer ${tag}\n\n`;
+            notes += `### What's New\n\n`;
+            
+            for (const commit of commits.data) {
+              const message = commit.commit.message.split('\n')[0];
+              notes += `- ${message}\n`;
+            }
+            
+            notes += `\n### Supported Quest Types\n\n`;
+            notes += `- WATCH_VIDEO (auto complete discord video quests)\n`;
+            notes += `- PLAY_ON_DESKTOP (discord game quest automation)\n`;
+            notes += `- STREAM_ON_DESKTOP (discord stream quest script)\n`;
+            notes += `- PLAY_ACTIVITY (discord activity quests)\n`;
+            notes += `- ACHIEVEMENT_IN_ACTIVITY (discord achievement quests)\n`;
+            
+            notes += `\n### Installation\n\n`;
+            notes += `1. Open Discord Desktop App\n`;
+            notes += `2. Enable Developer Tools (Ctrl+Shift+I)\n`;
+            notes += `3. Go to Console tab\n`;
+            notes += `4. Type 'allow pasting'\n`;
+            notes += `5. Paste the quest_completer.js script\n`;
+            
+            notes += `\n### Links\n\n`;
+            notes += `- [Documentation](https://github.com/power0matin/discord-quest-auto-completer#readme)\n`;
+            notes += `- [Changelog](https://github.com/power0matin/discord-quest-auto-completer/blob/main/CHANGELOG.md)\n`;
+            notes += `- [Security Policy](https://github.com/power0matin/discord-quest-auto-completer/blob/main/SECURITY.md)\n`;
+            
+            console.log(`Generated release notes:\n${notes}`);
+            
+            // Update release with notes
+            const release = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.data.id,
+              body: notes
+            });
+            
+            console.log(`Release notes updated for ${tag}`);
