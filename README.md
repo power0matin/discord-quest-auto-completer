@@ -203,7 +203,12 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
 </p>
 
 <p align="center">
-  [![Stargazers over time](https://starchart.cc/power0matin/discord-quest-auto-completer.svg?variant=adaptive)](https://starchart.cc/power0matin/discord-quest-auto-completer)
+  <a href="https://starchart.cc/power0matin/discord-quest-auto-completer">
+    <img
+      src="https://starchart.cc/power0matin/discord-quest-auto-completer.svg?variant=adaptive"
+      alt="Stargazers over time"
+    />
+  </a>
 </p>
 
 <p align="center">
