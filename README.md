@@ -202,15 +202,18 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
   <sub>Your support keeps the project alive and helps others find it.</sub>
 </p>
 
+<!-- Copy-paste in your Readme.md file -->
 <p align="center">
 
-<a href="https://next.ossinsight.io/widgets/official/analyze-repo-stars-history?repo_id=1034970863" target="_blank" style="display: block" align="center">
+<a  href="https://next.ossinsight.io/widgets/official/analyze-repo-stars-history?repo_id=1034970863" target="_blank" style="display: block" align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://next.ossinsight.io/widgets/official/analyze-repo-stars-history/thumbnail.png?repo_id=1034970863&image_size=auto&color_scheme=dark" width="721" height="auto">
     <img alt="Star History of power0matin/discord-quest-auto-completer" src="https://next.ossinsight.io/widgets/official/analyze-repo-stars-history/thumbnail.png?repo_id=1034970863&image_size=auto&color_scheme=light" width="721" height="auto">
   </picture>
 </a>
 </p>
+
+<!-- Made with [OSS Insight](https://ossinsight.io/) -->
 
 <p align="center">
   Created by <a href="https://github.com/power0matin">power0matin</a>
