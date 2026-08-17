@@ -2,26 +2,25 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, agent/runtime-reliability-hardening ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  lint:
+  reliability:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check for syntax errors
+      - name: Check JavaScript syntax
         run: node --check quest_completer.js
-      - name: Validate markdown
+      - name: Run runtime reliability fault-injection tests
+        run: node tests/reliability.test.js
+      - name: Validate markdown files exist and are non-empty
         run: |
           for file in *.md; do
             if [ -f "$file" ]; then
               echo "Checking $file..."
-              # Basic markdown validation
-              if [ -s "$file" ]; then
-                echo "✓ $file exists and is not empty"
-              fi
+              test -s "$file"
             fi
           done
 
@@ -29,14 +28,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check file structure
+      - name: Check required repository files
         run: |
-          echo "Checking repository structure..."
-          ls -la
-          echo ""
-          echo "Checking required files..."
-          test -f quest_completer.js && echo "✓ quest_completer.js exists" || echo "✗ quest_completer.js missing"
-          test -f README.md && echo "✓ README.md exists" || echo "✗ README.md missing"
-          test -f LICENSE && echo "✓ LICENSE exists" || echo "✗ LICENSE missing"
-          test -f SECURITY.md && echo "✓ SECURITY.md exists" || echo "✗ SECURITY.md missing"
-          test -f CHANGELOG.md && echo "✓ CHANGELOG.md exists" || echo "✗ CHANGELOG.md missing"
+          set -e
+          test -f quest_completer.js
+          test -f tests/reliability.test.js
+          test -f README.md
+          test -f LICENSE
+          test -f SECURITY.md
+          test -f CHANGELOG.md
