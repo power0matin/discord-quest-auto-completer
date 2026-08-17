@@ -10,6 +10,8 @@
 </p>
 <!-- repo-badges:end -->
 
+> **Official project page:** [matinshahabadi.ir/projects/discord-quest-auto-completer/](https://matinshahabadi.ir/projects/discord-quest-auto-completer/)
+
 <p align="center">
   <b>Automatically complete Discord quests with a beautiful in-app dashboard</b><br>
   <sub>Video quests, game quests, streaming quests, activities, achievements — all handled automatically</sub>
