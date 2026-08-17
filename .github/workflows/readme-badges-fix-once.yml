@@ -1,0 +1,24 @@
+name: Verify README badges once
+on:
+  push:
+    paths: [".github/workflows/readme-badges-fix-once.yml"]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      REPOSITORY: ${{ github.repository }}
+      REPO_PRIVATE: ${{ github.event.repository.private }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - run: curl -fsSL https://raw.githubusercontent.com/power0matin/p0wTemplate/main/.github/scripts/standardize-readme-badges.py | python -
+      - run: |
+          git config user.name "Matin Shahabadi"
+          git config user.email "116592301+power0matin@users.noreply.github.com"
+          git rm -f .github/workflows/readme-badges-fix-once.yml
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "docs: normalize repository badge placement"
+          git push
