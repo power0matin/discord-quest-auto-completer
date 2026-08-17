@@ -5,7 +5,7 @@
 
   const CONFIG = {
     NAME: "QuestMaster",
-    VERSION: "v1.0.0",
+    VERSION: "v1.1.0",
     THEME: "#5865F2", // discord blurple
     SUCCESS: "#3BA55C",
     WARN: "#faa61a",
@@ -17,9 +17,14 @@
   /* ── internal system limits (DO NOT EDIT) ─────────────────── */
 
   const SYS = Object.freeze({
-    MAX_TIME: 25 * 60 * 1000, // hard abort per task (25 min)
-    MAX_TASK_FAILURES: 5, // consecutive network failures
-    MAX_RETRIES: 3, // 429/5xx transient error retries
+    MAX_TIME: 25 * 60 * 1000, // minimum per-task runtime budget
+    TASK_GRACE_TIME: 10 * 60 * 1000,
+    STALL_TIME: 8 * 60 * 1000,
+    REQUEST_TIMEOUT: 20 * 1000,
+    MAX_RETRY_DELAY: 15 * 1000,
+    MAX_TASK_FAILURES: 5,
+    MAX_RETRIES: 3,
+    RELAY_PROBE_TTL: 5 * 1000,
     IS_DESKTOP: typeof window.DiscordNative !== "undefined",
   });
 
@@ -27,6 +32,8 @@
   const RUNTIME = {
     running: true,
     cleanups: new Set(), // tracks active event listeners for safe shutdown
+    sleepTimers: new Map(),
+    timeoutTimers: new Map(),
     autoEnroll: true, // whether to auto-enroll in quests before execution
     autoClaim: false, // whether to try auto-claiming quest rewards
     playSound: false, // whether to play an audio cue on quest completion
@@ -164,7 +171,100 @@
 
   /* ── util ──────────────────────────────────────────────────── */
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const sleep = (ms) =>
+    new Promise((resolve) => {
+      if (!RUNTIME.running) return resolve(false);
+      const id = setTimeout(() => {
+        RUNTIME.sleepTimers.delete(id);
+        resolve(RUNTIME.running);
+      }, ms);
+      RUNTIME.sleepTimers.set(id, resolve);
+    });
+
+  const cancelRuntimeTimers = () => {
+    for (const [id, resolve] of RUNTIME.sleepTimers) {
+      clearTimeout(id);
+      try {
+        resolve(false);
+      } catch (_) {}
+    }
+    RUNTIME.sleepTimers.clear();
+
+    for (const [id, reject] of RUNTIME.timeoutTimers) {
+      clearTimeout(id);
+      try {
+        const e = new Error("Shutdown");
+        e.code = "ESHUTDOWN";
+        reject(e);
+      } catch (_) {}
+    }
+    RUNTIME.timeoutTimers.clear();
+  };
+
+  const withTimeout = (promise, ms = SYS.REQUEST_TIMEOUT, label = "operation") =>
+    new Promise((resolve, reject) => {
+      let settled = false;
+      const id = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        RUNTIME.timeoutTimers.delete(id);
+        const e = new Error(`${label} timed out`);
+        e.code = "ETIMEDOUT";
+        reject(e);
+      }, ms);
+      RUNTIME.timeoutTimers.set(id, reject);
+
+      Promise.resolve(promise).then(
+        (value) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(id);
+          RUNTIME.timeoutTimers.delete(id);
+          resolve(value);
+        },
+        (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(id);
+          RUNTIME.timeoutTimers.delete(id);
+          reject(error);
+        },
+      );
+    });
+
+  const fetchWithTimeout = async (
+    url,
+    options = {},
+    ms = SYS.REQUEST_TIMEOUT,
+    label = "fetch",
+  ) => {
+    const controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+    const request = fetch(url, {
+      ...options,
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+    try {
+      return await withTimeout(request, ms, label);
+    } catch (e) {
+      if (e?.code === "ETIMEDOUT") {
+        try {
+          controller?.abort();
+        } catch (_) {}
+      }
+      throw e;
+    }
+  };
+
+  const taskTimeoutMs = (task) => {
+    const targetSeconds = Number(task?.target ?? 0);
+    const targetBudget =
+      Number.isFinite(targetSeconds) && targetSeconds > 0
+        ? targetSeconds * 1000 + SYS.TASK_GRACE_TIME
+        : SYS.MAX_TIME;
+    return Math.max(SYS.MAX_TIME, targetBudget);
+  };
+
   const rnd = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
   const esc = (s) =>
@@ -181,21 +281,28 @@
     );
 
   const notExpired = (q) => {
-    const e = new Date(q.config?.expiresAt ?? 0).getTime();
-    return Number.isNaN(e) || e > Date.now();
+    const raw = q?.config?.expiresAt;
+    if (!raw) return true;
+    const expiresAt = new Date(raw).getTime();
+    return Number.isNaN(expiresAt) || expiresAt > Date.now();
   };
 
   /* ── error classification ─────────────────────────────────── */
 
   const ErrorHandler = {
-    RETRYABLE: new Set([429, 500, 502, 503, 504, 408]),
-    CLIENT_ERRORS: new Set([400, 403, 404, 409, 410]),
+    RETRYABLE: new Set([408, 425, 429, 500, 502, 503, 504]),
+    CLIENT_ERRORS: new Set([400, 401, 403, 404, 409, 410]),
+    TERMINAL_QUEST_ERRORS: new Set([401, 403, 404, 410]),
 
     classify(error) {
       const status = error?.status ?? error?.statusCode;
+      const isTimeout =
+        error?.code === "ETIMEDOUT" || /timed out/i.test(error?.message ?? "");
       return {
-        isRetryable: this.RETRYABLE.has(status),
-        isClientError: this.CLIENT_ERRORS.has(status),
+        isRetryable:
+          isTimeout || status == null || this.RETRYABLE.has(Number(status)),
+        isClientError: this.CLIENT_ERRORS.has(Number(status)),
+        isTerminalQuestError: this.TERMINAL_QUEST_ERRORS.has(Number(status)),
         status,
         message:
           error?.message ??
@@ -205,8 +312,8 @@
     },
 
     isSkippableQuest(error) {
-      const status = error?.status;
-      return status === 404 || status === 403 || status === 410;
+      const status = error?.status ?? error?.statusCode;
+      return this.TERMINAL_QUEST_ERRORS.has(Number(status));
     },
   };
 
@@ -216,6 +323,7 @@
     root: null,
     tasks: new Map(),
     tickerId: null,
+    keyHandler: null,
 
     init() {
       const oldUI = document.getElementById("orion-ui");
@@ -459,11 +567,9 @@
 
       document.getElementById("orion-close").onclick = () => this.toggle();
       document.getElementById("orion-stop").onclick = () => this.shutdown();
-      document.addEventListener(
-        "keydown",
-        (e) =>
-          (e.key === ">" || (e.shiftKey && e.key === ".")) && this.toggle(),
-      );
+      this.keyHandler = (e) =>
+        (e.key === ">" || (e.shiftKey && e.key === ".")) && this.toggle();
+      document.addEventListener("keydown", this.keyHandler);
 
       document.getElementById("orion-opts").addEventListener("click", () => {
         const panel = document.getElementById("orion-options-panel");
@@ -491,9 +597,20 @@
       RUNTIME.running = false;
       this.log("[System] Stopping script & cleaning up...", "warn");
 
-      if (this.tickerId) clearInterval(this.tickerId);
+      if (this.tickerId) {
+        clearInterval(this.tickerId);
+        this.tickerId = null;
+      }
 
-      for (const cleanupFn of RUNTIME.cleanups) {
+      cancelRuntimeTimers();
+
+      try {
+        Traffic.stop();
+      } catch (e) {
+        this.log(`[Traffic Cleanup] ${e?.message ?? e}`, "debug");
+      }
+
+      for (const cleanupFn of [...RUNTIME.cleanups]) {
         try {
           cleanupFn();
         } catch (e) {
@@ -502,13 +619,30 @@
       }
       RUNTIME.cleanups.clear();
 
-      Patcher.clean();
-      setTimeout(() => {
+      try {
+        Patcher.clean();
+      } catch (e) {
+        this.log(`[Patcher Cleanup] ${e?.message ?? e}`, "debug");
+      }
+
+      if (this.keyHandler) {
+        try {
+          document.removeEventListener("keydown", this.keyHandler);
+        } catch (_) {}
+        this.keyHandler = null;
+      }
+
+      try {
+        if (Sound._ctx && Sound._ctx.state !== "closed") Sound._ctx.close();
+      } catch (_) {}
+
+      try {
         const styles = document.getElementById("orion-styles");
         if (styles) styles.remove();
         if (this.root?.parentElement) this.root.remove();
+      } finally {
         window.orionLock = false;
-      }, 1000);
+      }
     },
 
     _getPct(t) {
@@ -520,12 +654,9 @@
     startTicker() {
       if (this.tickerId) clearInterval(this.tickerId);
       this.tickerId = setInterval(() => {
-        if (!RUNTIME.running) return clearInterval(this.tickerId);
-        for (const [id, task] of this.tasks.entries()) {
-          if (task.status === "RUNNING" && task.type !== "ACHIEVEMENT") {
-            let cur = Math.min(task.cur + 1, task.max);
-            this.updateTask(id, { cur });
-          }
+        if (!RUNTIME.running) {
+          clearInterval(this.tickerId);
+          this.tickerId = null;
         }
       }, 1000);
     },
@@ -986,75 +1117,95 @@
   const Traffic = {
     queue: [],
     processing: false,
+    stopped: false,
 
     async enqueue(url, body) {
-      if (!RUNTIME.running) return Promise.reject(new Error("Stopped"));
+      if (!RUNTIME.running || this.stopped)
+        return Promise.reject(new Error("Stopped"));
       return new Promise((resolve, reject) => {
         this.queue.push({ url, body, resolve, reject, attempts: 0 });
-        this.process();
+        void this.process();
       });
     },
 
+    stop() {
+      this.stopped = true;
+      for (const req of this.queue.splice(0)) {
+        try {
+          req.reject(new Error("Shutdown"));
+        } catch (_) {}
+      }
+    },
+
     async process() {
-      if (this.processing || this.queue.length === 0) return;
+      if (this.processing || this.queue.length === 0 || this.stopped) return;
       this.processing = true;
 
-      while (this.queue.length > 0) {
-        if (!RUNTIME.running) {
-          this.queue.forEach((req) => req.reject(new Error("Shutdown")));
-          this.queue = [];
-          this.processing = false;
-          return;
+      try {
+        while (this.queue.length > 0 && RUNTIME.running && !this.stopped) {
+          const req = this.queue.shift();
+          try {
+            const res = await withTimeout(
+              Mods.API.post({ url: req.url, body: req.body }),
+              SYS.REQUEST_TIMEOUT,
+              `POST ${req.url}`,
+            );
+            req.resolve(res);
+          } catch (e) {
+            const err = ErrorHandler.classify(e);
+
+            if (err.isRetryable && req.attempts < SYS.MAX_RETRIES) {
+              req.attempts++;
+              const retryAfter = Number(e?.body?.retry_after);
+              const baseDelay = Number.isFinite(retryAfter)
+                ? retryAfter * 1000
+                : Math.pow(2, req.attempts) * 1000;
+              const delay = Math.min(SYS.MAX_RETRY_DELAY, baseDelay);
+              const retryJitter = rnd(200, 800);
+
+              Logger.log(
+                `[Network] Retry ${req.attempts}/${SYS.MAX_RETRIES} in ${((delay + retryJitter) / 1000).toFixed(1)}s (${err.status ? `HTTP ${err.status}` : err.message})`,
+                "warn",
+              );
+
+              await sleep(delay + retryJitter);
+              if (RUNTIME.running && !this.stopped) {
+                this.queue.unshift(req);
+              } else {
+                req.reject(new Error("Shutdown"));
+              }
+            } else {
+              if (err.isClientError) {
+                Logger.log(
+                  `[Network] HTTP ${err.status}: ${req.url}`,
+                  "debug",
+                );
+              } else {
+                Logger.log(
+                  `[Network] Request to ${req.url} failed: ${err.message}`,
+                  "err",
+                );
+              }
+              req.reject(e);
+            }
+          }
+
+          if (RUNTIME.running && !this.stopped)
+            await sleep(rnd(500, 900));
         }
 
-        const req = this.queue.shift();
-        try {
-          const res = await Mods.API.post({ url: req.url, body: req.body });
-          req.resolve(res);
-        } catch (e) {
-          const err = ErrorHandler.classify(e);
-
-          if (err.isRetryable && req.attempts < SYS.MAX_RETRIES) {
-            req.attempts++;
-            const delay =
-              (e.body?.retry_after ?? Math.pow(2, req.attempts)) * 1000;
-            const isGlobal = e.body?.global === true;
-
-            Logger.log(
-              `[Network] Retry ${req.attempts}/${SYS.MAX_RETRIES} in ${(delay / 1000).toFixed(1)}s (HTTP ${err.status})`,
-              "warn",
-            );
-
-            const retryJitter = rnd(200, 800);
-
-            if (isGlobal) {
-              this.queue.unshift(req);
-              await sleep(delay + retryJitter);
-            } else {
-              setTimeout(() => {
-                if (RUNTIME.running) {
-                  this.queue.push(req);
-                  this.process();
-                } else {
-                  req.reject(new Error("Shutdown"));
-                }
-              }, delay + retryJitter);
-            }
-          } else if (err.isClientError) {
-            Logger.log(`[Network] HTTP ${err.status}: ${req.url}`, "debug");
-            req.reject(e);
-          } else {
-            Logger.log(
-              `[Network] Request to ${req.url} failed: ${err.message}`,
-              "err",
-            );
-            req.reject(e);
+        if (!RUNTIME.running || this.stopped) {
+          for (const req of this.queue.splice(0)) {
+            try {
+              req.reject(new Error("Shutdown"));
+            } catch (_) {}
           }
         }
-
-        await sleep(rnd(1200, 1800));
+      } finally {
+        this.processing = false;
+        if (this.queue.length > 0 && RUNTIME.running && !this.stopped)
+          void this.process();
       }
-      this.processing = false;
     },
   };
 
@@ -1069,21 +1220,38 @@
     active: false,
 
     init(Store) {
-      if (!Store) return;
+      if (
+        !Store ||
+        typeof Store.getRunningGames !== "function" ||
+        typeof Store.getGameForPID !== "function"
+      )
+        return false;
       this.realGames = Store.getRunningGames;
       this.realPID = Store.getGameForPID;
+      return true;
     },
 
     toggle(on) {
       if (on && !this.active) {
-        Mods.RunStore.getRunningGames = () => [
-          ...this.realGames.call(Mods.RunStore),
-          ...this.games,
-        ];
-        Mods.RunStore.getGameForPID = (pid) =>
-          this.games.find((g) => g.pid === pid) ||
-          this.realPID.call(Mods.RunStore, pid);
-        this.active = true;
+        const oldGames = Mods.RunStore.getRunningGames;
+        const oldPID = Mods.RunStore.getGameForPID;
+        try {
+          Mods.RunStore.getRunningGames = () => [
+            ...this.realGames.call(Mods.RunStore),
+            ...this.games,
+          ];
+          Mods.RunStore.getGameForPID = (pid) =>
+            this.games.find((g) => g.pid === pid) ||
+            this.realPID.call(Mods.RunStore, pid);
+          this.active = true;
+        } catch (e) {
+          try {
+            Mods.RunStore.getRunningGames = oldGames;
+            Mods.RunStore.getGameForPID = oldPID;
+          } catch (_) {}
+          this.active = false;
+          throw e;
+        }
       } else if (!on && this.active) {
         Mods.RunStore.getRunningGames = this.realGames;
         Mods.RunStore.getGameForPID = this.realPID;
@@ -1093,10 +1261,21 @@
 
     add(g) {
       if (this.games.some((x) => x.pid === g.pid)) return;
-      this.games.push(g);
-      this.toggle(true);
-      this.dispatch([g], []);
-      this.rpc(g);
+      const previous = [...this.games];
+      try {
+        this.games.push(g);
+        this.toggle(true);
+        this.dispatch([g], []);
+        this.rpc(g);
+      } catch (e) {
+        this.games = previous;
+        if (!previous.length) {
+          try {
+            this.toggle(false);
+          } catch (_) {}
+        }
+        throw e;
+      }
     },
 
     remove(g) {
@@ -1104,9 +1283,17 @@
       this.games = this.games.filter((x) => x.pid !== g.pid);
       if (this.games.length === before) return;
 
-      this.dispatch([], [g]);
+      try {
+        this.dispatch([], [g]);
+      } catch (e) {
+        Logger.log(`[Game Cleanup] ${e?.message ?? e}`, "debug");
+      }
       if (!this.games.length) {
-        this.toggle(false);
+        try {
+          this.toggle(false);
+        } catch (e) {
+          Logger.log(`[Game Restore] ${e?.message ?? e}`, "debug");
+        }
         this.rpc(null);
       } else {
         this.rpc(this.games[0]);
@@ -1148,8 +1335,20 @@
     },
 
     clean() {
+      const removed = [...this.games];
       this.games = [];
-      this.toggle(false);
+      try {
+        this.toggle(false);
+      } catch (e) {
+        Logger.log(`[Patcher Restore] ${e?.message ?? e}`, "debug");
+      }
+      if (removed.length) {
+        try {
+          this.dispatch([], removed);
+        } catch (e) {
+          Logger.log(`[Patcher Dispatch] ${e?.message ?? e}`, "debug");
+        }
+      }
       this.rpc(null);
     },
   };
@@ -1158,46 +1357,100 @@
 
   const Tasks = {
     skipped: new Set(),
+    completed: new Set(),
+    inFlight: new Set(),
+    finishing: new Map(),
+    retryAfter: new Map(),
+    retryAttempts: new Map(),
+    enrolled: new Set(),
 
     sanitize(name) {
-      return name
+      return String(name ?? "")
         .replace(/[^a-zA-Z0-9 ]/g, "")
         .trim()
         .replace(/\s+/g, " ");
     },
 
-    detectType(cfg, applicationId) {
-      const taskKeys = Object.keys(cfg.tasks);
-      const typeMap = [
-        { key: "PLAY", type: "GAME" },
-        { key: "STREAM", type: "STREAM" },
-        { key: "VIDEO", type: "WATCH_VIDEO" },
-        { key: "ACHIEVEMENT_IN_ACTIVITY", type: "ACHIEVEMENT" },
-        { key: "ACTIVITY", type: "ACTIVITY" },
+    detectType(cfg) {
+      const taskKeys = Object.keys(cfg?.tasks ?? {});
+      if (!taskKeys.length) return null;
+
+      const rules = [
+        {
+          keys: ["ACHIEVEMENT_IN_ACTIVITY"],
+          type: "ACHIEVEMENT",
+        },
+        {
+          keys: ["PLAY_ACTIVITY"],
+          type: "ACTIVITY",
+        },
+        {
+          keys: ["WATCH_VIDEO", "VIDEO"],
+          type: "WATCH_VIDEO",
+        },
+        {
+          keys: ["STREAM_ON_DESKTOP", "STREAM"],
+          type: "STREAM",
+        },
+        {
+          keys: ["PLAY_ON_DESKTOP"],
+          type: "GAME",
+        },
       ];
 
-      for (const { key, type } of typeMap) {
-        const keyName = taskKeys.find((k) => k.includes(key));
+      for (const rule of rules) {
+        const keyName = taskKeys.find((key) => rule.keys.includes(key));
         if (keyName)
-          return { type, keyName, target: cfg.tasks[keyName]?.target ?? 0 };
+          return {
+            type: rule.type,
+            keyName,
+            target: Number(cfg.tasks[keyName]?.target ?? 0),
+          };
       }
 
-      if (applicationId) {
-        return {
-          type: "GAME",
-          keyName: "PLAY_ON_DESKTOP",
-          target: cfg.tasks[taskKeys[0]]?.target ?? 0,
-        };
+      for (const rule of rules) {
+        const keyName = taskKeys.find((taskKey) =>
+          rule.keys.some((knownKey) => taskKey.includes(knownKey)),
+        );
+        if (keyName)
+          return {
+            type: rule.type,
+            keyName,
+            target: Number(cfg.tasks[keyName]?.target ?? 0),
+          };
       }
 
       return null;
     },
 
+    readProgress(source, keyName, aliases = []) {
+      const progress = source?.progress ?? source?.userStatus?.progress;
+      for (const key of [keyName, ...aliases]) {
+        const value = progress?.[key]?.value;
+        if (Number.isFinite(value)) return Number(value);
+      }
+      const streamProgress = source?.userStatus?.streamProgressSeconds;
+      return Number.isFinite(streamProgress) ? Number(streamProgress) : null;
+    },
+
+    canRun(questId) {
+      return Date.now() >= (this.retryAfter.get(questId) ?? 0);
+    },
+
+    clearRetry(questId) {
+      this.retryAfter.delete(questId);
+      this.retryAttempts.delete(questId);
+    },
+
     async fetchGameData(appId, appName) {
       try {
-        const res = await Mods.API.get({
-          url: `/applications/public?application_ids=${appId}`,
-        });
+        const res = await withTimeout(
+          Mods.API.get({
+            url: `/applications/public?application_ids=${appId}`,
+          }),
+          SYS.REQUEST_TIMEOUT,
+          `GET application ${appId}`,
+        );
         const appData = res?.body?.[0];
         const exeEntry = appData?.executables?.find((x) => x.os === "win32");
         const rawExe = exeEntry
@@ -1218,7 +1471,7 @@
           `[FetchGame] Fallback for ${appName}: ${e?.message ?? e}`,
           "debug",
         );
-        const cleanName = this.sanitize(appName);
+        const cleanName = this.sanitize(appName) || "DiscordQuestGame";
         const safeExe = `${cleanName.replace(/\s+/g, "")}.exe`;
         return {
           name: appName,
@@ -1231,21 +1484,18 @@
     },
 
     async claimReward(questId) {
-      return await Mods.API.post({
-        url: `/quests/${questId}/claim-reward`,
-        body: {
-          platform: 0,
-          location: 11,
-          is_targeted: false,
-          metadata_raw: null,
-          metadata_sealed: null,
-          traffic_metadata_raw: null,
-          traffic_metadata_sealed: null,
-        },
+      return Traffic.enqueue(`/quests/${questId}/claim-reward`, {
+        platform: 0,
+        location: 11,
+        is_targeted: false,
+        metadata_raw: null,
+        metadata_sealed: null,
+        traffic_metadata_raw: null,
+        traffic_metadata_sealed: null,
       });
     },
 
-    failTask(q, t, reason) {
+    failTask(q, t, reason, { permanent = false } = {}) {
       const currentProgress = Logger.tasks.get(q.id)?.cur ?? 0;
       Logger.updateTask(q.id, {
         name: t.name,
@@ -1254,15 +1504,33 @@
         max: t.target,
         status: "FAILED",
       });
-      Logger.log(`[Task] Aborted "${t.name}": ${reason}`, "err");
-      Tasks.skipped.add(q.id);
-      setTimeout(() => Logger.removeTask(q.id), 2000);
+
+      if (permanent) {
+        this.skipped.add(q.id);
+        this.clearRetry(q.id);
+        Logger.log(`[Task] Skipped "${t.name}": ${reason}`, "err");
+        setTimeout(() => Logger.removeTask(q.id), 2000);
+        return;
+      }
+
+      const attempts = (this.retryAttempts.get(q.id) ?? 0) + 1;
+      this.retryAttempts.set(q.id, attempts);
+      const retryDelay = Math.min(60_000, 5_000 * Math.pow(2, attempts - 1));
+      this.retryAfter.set(q.id, Date.now() + retryDelay);
+      Logger.log(
+        `[Task] Deferred "${t.name}": ${reason}. Retrying in ${Math.round(retryDelay / 1000)}s.`,
+        "warn",
+      );
     },
 
     async VIDEO(q, t, s) {
       let cur =
-        s?.progress?.[t.keyName]?.value ?? s?.progress?.[t.type]?.value ?? 0;
+        this.readProgress(s, t.keyName, ["WATCH_VIDEO"]) ?? 0;
+      let sent = cur;
       let failCount = 0;
+      let calls = 0;
+      let lastProgressAt = Date.now();
+      const deadline = Date.now() + taskTimeoutMs(t);
 
       Logger.updateTask(q.id, {
         name: t.name,
@@ -1272,54 +1540,73 @@
         status: "RUNNING",
       });
 
-      const startTime = Date.now();
-      let calls = 0;
-
-      if (cur === 0) {
+      if (sent === 0 && RUNTIME.running) {
         await sleep(rnd(200, 350));
-        cur = 0.2 + Math.random() * 0.05;
+        sent = 0.2 + Math.random() * 0.05;
         try {
-          await Traffic.enqueue(`/quests/${q.id}/video-progress`, {
-            timestamp: Number(cur.toFixed(6)),
+          const initial = await Traffic.enqueue(`/quests/${q.id}/video-progress`, {
+            timestamp: Number(sent.toFixed(6)),
           });
           calls++;
+          const initialServer = this.readProgress(initial?.body, t.keyName, [
+            "WATCH_VIDEO",
+          ]);
+          if (Number.isFinite(initialServer) && initialServer > cur) {
+            cur = Math.min(t.target, initialServer);
+            lastProgressAt = Date.now();
+            Logger.updateTask(q.id, { cur });
+          }
+          if (initial?.body?.completed_at) cur = t.target;
         } catch (e) {
           Logger.log(`[Video] Initial ping failed: ${e.message}`, "debug");
         }
       }
 
       while (cur < t.target && RUNTIME.running) {
+        if (Date.now() >= deadline)
+          return this.failTask(q, t, "Task runtime budget exceeded");
+
+        if (Date.now() - lastProgressAt >= SYS.STALL_TIME)
+          return this.failTask(q, t, "Server progress stalled");
+
         const delayMs = rnd(3500, 4750);
         await sleep(delayMs);
+        if (!RUNTIME.running) return;
 
         const elapsedSec = delayMs / 1000 + (Math.random() * 0.02 - 0.01);
-        cur += elapsedSec;
-
-        const payloadTs = Number(Math.min(t.target, cur).toFixed(6));
+        sent = Math.min(t.target, sent + elapsedSec);
+        const payloadTs = Number(sent.toFixed(6));
 
         try {
           const r = await Traffic.enqueue(`/quests/${q.id}/video-progress`, {
             timestamp: payloadTs,
           });
           calls++;
-          const serverVal =
-            r?.body?.progress?.[t.keyName]?.value ??
-            r?.body?.progress?.WATCH_VIDEO?.value;
-          if (serverVal > cur) cur = Math.min(t.target, serverVal);
-          if (r?.body?.completed_at) break;
+
+          const serverVal = this.readProgress(r?.body, t.keyName, [
+            "WATCH_VIDEO",
+          ]);
+
+          if (r?.body?.completed_at) {
+            cur = t.target;
+            lastProgressAt = Date.now();
+          } else if (Number.isFinite(serverVal)) {
+            const next = Math.min(t.target, serverVal);
+            if (next > cur) lastProgressAt = Date.now();
+            cur = Math.max(cur, next);
+          }
+
           failCount = 0;
         } catch (e) {
           failCount++;
           const err = ErrorHandler.classify(e);
-          if (err.isClientError) {
-            Logger.log(
-              `[Task] Video quest unavailable (HTTP ${err.status}). Skipping.`,
-              "warn",
-            );
-            return Tasks.failTask(q, t, `Client Error ${err.status}`);
+          if (err.isTerminalQuestError) {
+            return this.failTask(q, t, `Client Error ${err.status}`, {
+              permanent: true,
+            });
           }
           if (failCount >= SYS.MAX_TASK_FAILURES) {
-            return Tasks.failTask(q, t, "Too many network failures");
+            return this.failTask(q, t, "Too many transient network failures");
           }
           Logger.log(
             `[Task] VIDEO progress failed (${failCount}/${SYS.MAX_TASK_FAILURES}): ${err.message}`,
@@ -1334,17 +1621,14 @@
           max: t.target,
           status: "RUNNING",
         });
-
-        if (Date.now() - startTime > SYS.MAX_TIME) {
-          return Tasks.failTask(q, t, "Timeout exceeded");
-        }
       }
-      if (RUNTIME.running) {
+
+      if (RUNTIME.running && cur >= t.target) {
         Logger.log(
-          `[Task] VIDEO "${t.name}" done in ${calls} API calls`,
+          `[Task] VIDEO "${t.name}" confirmed in ${calls} API calls`,
           "debug",
         );
-        Tasks.finish(q, t);
+        await this.finish(q, t);
       }
     },
 
@@ -1357,7 +1641,13 @@
 
     async generic(q, t, type, key, s) {
       if (!RUNTIME.running) return;
+
+      const initialProgress =
+        this.readProgress(s, key, [t.keyName]) ?? 0;
+      if (initialProgress >= t.target) return this.finish(q, t);
+
       const gameData = await this.fetchGameData(t.appId, t.name);
+      if (!RUNTIME.running) return;
 
       return new Promise((resolve) => {
         const pid = rnd(2500, 12500) * 4;
@@ -1383,75 +1673,24 @@
           isLauncher: false,
         };
 
-        let cleanupHook;
+        let cleanupHook = () => {};
         let cleaned = false;
-        let safetyTimer;
+        let settled = false;
+        let completing = false;
+        let safetyTimer = null;
 
-        if (type === "STREAM") {
-          const real = Mods.StreamStore?.getStreamerActiveStreamMetadata;
-          if (Mods.StreamStore) {
-            Mods.StreamStore.getStreamerActiveStreamMetadata = () => ({
-              id: gameData.id,
-              pid,
-              sourceName: gameData.name,
-            });
-          }
-          cleanupHook = () => {
-            if (Mods.StreamStore)
-              Mods.StreamStore.getStreamerActiveStreamMetadata = real;
-          };
-        } else {
-          Patcher.add(game);
-          cleanupHook = () => Patcher.remove(game);
-        }
-
-        Logger.updateTask(q.id, {
-          name: t.name,
-          type,
-          cur: 0,
-          max: t.target,
-          status: "RUNNING",
-        });
-        Logger.log(`[Task] Started ${type}: ${gameData.name}`, "info");
-
-        const finish = () => {
-          if (cleaned) return;
-          cleaned = true;
-          clearTimeout(safetyTimer);
-          try {
-            cleanupHook();
-          } catch (e) {
-            Logger.log(`[Task] Cleanup: ${e.message}`, "debug");
-          }
-          try {
-            Mods.Dispatcher?.unsubscribe(CONST.EVT.HEARTBEAT, check);
-          } catch (e) {
-            Logger.log(
-              `[Dispatcher] Unsubscribe failed: ${e.message}`,
-              "debug",
-            );
-          }
-          RUNTIME.cleanups.delete(finish);
+        const settle = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
         };
 
-        safetyTimer = setTimeout(() => {
-          if (RUNTIME.running) Tasks.failTask(q, t, "Timeout exceeded (25m)");
-          finish();
-          resolve();
-        }, SYS.MAX_TIME);
-
         const check = (d) => {
-          if (!RUNTIME.running) {
-            finish();
-            resolve();
-            return;
-          }
-          if (d?.questId !== q.id) return;
+          if (!RUNTIME.running || d?.questId !== q.id || completing) return;
 
-          const prog =
-            d.userStatus?.progress?.[key]?.value ??
-            d.userStatus?.streamProgressSeconds ??
-            0;
+          const prog = this.readProgress(d, key, [t.keyName]);
+          if (!Number.isFinite(prog)) return;
+
           Logger.updateTask(q.id, {
             name: t.name,
             type,
@@ -1460,57 +1699,161 @@
             status: "RUNNING",
           });
 
-          if (prog >= t.target) {
-            finish();
-            Tasks.finish(q, t);
-            resolve();
+          if (prog >= t.target) void complete();
+        };
+
+        const cleanup = () => {
+          if (cleaned) return;
+          cleaned = true;
+          if (safetyTimer) clearTimeout(safetyTimer);
+
+          try {
+            cleanupHook();
+          } catch (e) {
+            Logger.log(`[Task] Cleanup: ${e.message}`, "debug");
+          }
+
+          try {
+            Mods.Dispatcher?.unsubscribe(CONST.EVT.HEARTBEAT, check);
+          } catch (e) {
+            Logger.log(
+              `[Dispatcher] Unsubscribe failed: ${e.message}`,
+              "debug",
+            );
+          }
+
+          RUNTIME.cleanups.delete(abort);
+        };
+
+        const abort = () => {
+          cleanup();
+          settle();
+        };
+
+        const complete = async () => {
+          if (completing || settled) return;
+          completing = true;
+          cleanup();
+          try {
+            await this.finish(q, t);
+          } finally {
+            settle();
           }
         };
 
-        Mods.Dispatcher?.subscribe(CONST.EVT.HEARTBEAT, check);
-        RUNTIME.cleanups.add(finish);
+        RUNTIME.cleanups.add(abort);
+
+        try {
+          if (type === "STREAM") {
+            if (!Mods.StreamStore)
+              throw new Error("ApplicationStreamingStore unavailable");
+            const real = Mods.StreamStore.getStreamerActiveStreamMetadata;
+            Mods.StreamStore.getStreamerActiveStreamMetadata = () => ({
+              id: gameData.id,
+              pid,
+              sourceName: gameData.name,
+            });
+            cleanupHook = () => {
+              Mods.StreamStore.getStreamerActiveStreamMetadata = real;
+            };
+          } else {
+            Patcher.add(game);
+            cleanupHook = () => Patcher.remove(game);
+          }
+
+          Mods.Dispatcher?.subscribe(CONST.EVT.HEARTBEAT, check);
+
+          Logger.updateTask(q.id, {
+            name: t.name,
+            type,
+            cur: initialProgress,
+            max: t.target,
+            status: "RUNNING",
+          });
+          Logger.log(`[Task] Started ${type}: ${gameData.name}`, "info");
+
+          safetyTimer = setTimeout(() => {
+            if (RUNTIME.running)
+              this.failTask(q, t, "Heartbeat task runtime budget exceeded");
+            cleanup();
+            settle();
+          }, taskTimeoutMs(t));
+        } catch (e) {
+          cleanup();
+          this.failTask(q, t, `Setup failed: ${e?.message ?? e}`);
+          settle();
+        }
       });
     },
 
     _relayUrl: "http://127.0.0.1:43210",
-    _relayProbe: null,
+    _relayProbePromise: null,
+    _relayProbeAt: 0,
+    _relayAvailable: false,
 
-    _probeRelay() {
-      return (this._relayProbe ??= (async () => {
+    async _probeRelay(force = false) {
+      const now = Date.now();
+      if (
+        !force &&
+        now - this._relayProbeAt < SYS.RELAY_PROBE_TTL
+      )
+        return this._relayAvailable;
+      if (this._relayProbePromise) return this._relayProbePromise;
+
+      this._relayProbePromise = (async () => {
+        let available = false;
         try {
-          const r = await Promise.race([
-            fetch(`${this._relayUrl}/health`, {
-              method: "GET",
-              redirect: "error",
-            }),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("probe timeout")), 800),
-            ),
-          ]);
-          if (r.ok)
+          const r = await fetchWithTimeout(
+            `${this._relayUrl}/health`,
+            { method: "GET", redirect: "error" },
+            1000,
+            "relay health probe",
+          );
+          available = !!r.ok;
+          if (available && !this._relayAvailable)
             Logger.log(
               "[Bypass] QuestMaster Relay detected on 127.0.0.1:43210.",
               "info",
             );
-          return r.ok;
         } catch (_) {
-          return false;
+          available = false;
+        } finally {
+          this._relayAvailable = available;
+          this._relayProbeAt = Date.now();
+          this._relayProbePromise = null;
         }
-      })());
+        return available;
+      })();
+
+      return this._relayProbePromise;
     },
 
     async _bypassPost(url, headers, jsonBody) {
       if (await this._probeRelay()) {
-        const r = await fetch(`${this._relayUrl}/proxy`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, headers, body: jsonBody }),
-          redirect: "error",
-        });
-        if (!r.ok) throw { status: r.status, body: await r.text() };
-        const result = await r.json();
-        if (!result.ok) throw { status: result.status, body: result.body };
-        return result;
+        try {
+          const r = await fetchWithTimeout(
+            `${this._relayUrl}/proxy`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url, headers, body: jsonBody }),
+              redirect: "error",
+            },
+            SYS.REQUEST_TIMEOUT,
+            "relay proxy",
+          );
+          if (!r.ok) throw { status: r.status, body: await r.text() };
+          const result = await r.json();
+          if (!result.ok) throw { status: result.status, body: result.body };
+          return result;
+        } catch (e) {
+          this._relayAvailable = false;
+          this._relayProbeAt = 0;
+          Logger.log(
+            `[Bypass] Relay failed; falling back: ${ErrorHandler.classify(e).message}`,
+            "debug",
+          );
+        }
       }
 
       try {
@@ -1522,25 +1865,33 @@
           const referrer = headers["Referer"];
           if (u.pathname.endsWith("/acf/authorize")) {
             const { code } = JSON.parse(jsonBody);
-            const r = await helper.discordsaysAuthorize({
-              appId,
-              questId,
-              authCode: code,
-              referrer,
-            });
+            const r = await withTimeout(
+              helper.discordsaysAuthorize({
+                appId,
+                questId,
+                authCode: code,
+                referrer,
+              }),
+              SYS.REQUEST_TIMEOUT,
+              "Vencord Discord Says authorize",
+            );
             if (!r.ok) throw { status: r.status, body: r.body };
             return { ok: true, status: r.status, body: r.body };
           }
           if (u.pathname.endsWith("/acf/quest/progress")) {
             const { progress } = JSON.parse(jsonBody);
             const token = headers["X-Auth-Token"];
-            const r = await helper.discordsaysProgress({
-              appId,
-              questId,
-              token,
-              target: progress,
-              referrer,
-            });
+            const r = await withTimeout(
+              helper.discordsaysProgress({
+                appId,
+                questId,
+                token,
+                target: progress,
+                referrer,
+              }),
+              SYS.REQUEST_TIMEOUT,
+              "Vencord Discord Says progress",
+            );
             if (!r.ok) throw { status: r.status, body: r.body };
             return { ok: true, status: r.status, body: r.body };
           }
@@ -1565,31 +1916,41 @@
           try {
             const fn = probe();
             if (typeof fn === "function") {
-              const r = await fn.call(dn, {
-                method: "POST",
-                url,
-                headers,
-                body: jsonBody,
-              });
+              const r = await withTimeout(
+                fn.call(dn, {
+                  method: "POST",
+                  url,
+                  headers,
+                  body: jsonBody,
+                }),
+                SYS.REQUEST_TIMEOUT,
+                "DiscordNative request",
+              );
               if (r && (r.status || r.statusCode)) {
                 const status = r.status ?? r.statusCode;
-                return {
-                  ok: status >= 200 && status < 300,
-                  status,
-                  body: r.body ?? r.responseText ?? "",
-                };
+                if (status >= 200 && status < 300)
+                  return {
+                    ok: true,
+                    status,
+                    body: r.body ?? r.responseText ?? "",
+                  };
               }
             }
           } catch (_) {}
         }
       }
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers,
-        body: jsonBody,
-        redirect: "error",
-      });
+      const res = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers,
+          body: jsonBody,
+          redirect: "error",
+        },
+        SYS.REQUEST_TIMEOUT,
+        "Discord Says fetch",
+      );
       const body = await res.text();
       if (!res.ok) throw { status: res.status, body };
       return { ok: true, status: res.status, body };
@@ -1597,23 +1958,26 @@
 
     async bypassAchievement(q, t) {
       const appId = q.config?.application?.id;
-      if (!appId) return false;
-      if (!/^\d+$/.test(String(appId))) {
-        Logger.log(`[Bypass] Refusing non-numeric appId "${appId}".`, "warn");
+      if (!appId || !/^\d+$/.test(String(appId))) {
+        Logger.log(`[Bypass] Invalid application id for "${t.name}".`, "warn");
         return false;
       }
 
       let preGrantIds;
       try {
-        const before = await Mods.API.get({ url: "/oauth2/tokens" });
+        const before = await withTimeout(
+          Mods.API.get({ url: "/oauth2/tokens" }),
+          SYS.REQUEST_TIMEOUT,
+          "OAuth token snapshot",
+        );
         preGrantIds = new Set(
           (before?.body || [])
-            .filter((tk) => tk.application?.id === appId)
+            .filter((tk) => String(tk.application?.id) === String(appId))
             .map((tk) => tk.id),
         );
       } catch (e) {
         Logger.log(
-          `[Bypass] Couldn't snapshot existing grants; aborting: ${e?.message}`,
+          `[Bypass] Couldn't snapshot existing grants; aborting safely: ${ErrorHandler.classify(e).message}`,
           "warn",
         );
         return false;
@@ -1622,11 +1986,16 @@
       try {
         let appName = null;
         try {
-          const a = await Mods.API.get({
-            url: `/applications/public?application_ids=${appId}`,
-          });
+          const a = await withTimeout(
+            Mods.API.get({
+              url: `/applications/public?application_ids=${appId}`,
+            }),
+            SYS.REQUEST_TIMEOUT,
+            "Achievement application lookup",
+          );
           appName = a?.body?.[0]?.name ?? null;
         } catch (_) {}
+
         if (!(await Consent.ask(appId, appName))) {
           Logger.log(
             `[Bypass] Consent declined for "${t.name}". Not authorizing the app.`,
@@ -1640,40 +2009,48 @@
           "info",
         );
 
-        const authRes = await Mods.API.post({
-          url: "/oauth2/authorize",
-          query: {
-            response_type: "code",
-            client_id: appId,
-            scope: "identify applications.commands applications.entitlements",
-          },
-          body: {
-            permissions: "0",
-            authorize: true,
-            integration_type: 1,
-            location_context: {
-              guild_id: "10000",
-              channel_id: "10000",
-              channel_type: 10000,
+        const authRes = await withTimeout(
+          Mods.API.post({
+            url: "/oauth2/authorize",
+            query: {
+              response_type: "code",
+              client_id: appId,
+              scope: "identify applications.commands applications.entitlements",
             },
-          },
-        });
+            body: {
+              permissions: "0",
+              authorize: true,
+              integration_type: 1,
+              location_context: {
+                guild_id: "10000",
+                channel_id: "10000",
+                channel_type: 10000,
+              },
+            },
+          }),
+          SYS.REQUEST_TIMEOUT,
+          "OAuth authorize",
+        );
         const location = authRes?.body?.location;
         if (!location)
           throw new Error("no location in /oauth2/authorize response");
         const authCode = new URL(location).searchParams.get("code");
         if (!authCode) throw new Error("no code in authorize location");
 
-        const ticketRes = await Mods.API.post({
-          url: `/applications/${appId}/proxy-tickets`,
-          body: {},
-        });
+        const ticketRes = await withTimeout(
+          Mods.API.post({
+            url: `/applications/${appId}/proxy-tickets`,
+            body: {},
+          }),
+          SYS.REQUEST_TIMEOUT,
+          "Proxy ticket",
+        );
         const proxyTicket = ticketRes?.body?.ticket;
         if (!proxyTicket) throw new Error("no proxy ticket");
 
         const referrer = `https://${appId}.discordsays.com/?instance_id=example-cl-instance&platform=desktop&discord_proxy_ticket=${encodeURIComponent(proxyTicket)}`;
 
-        const dsAuthRes = await Tasks._bypassPost(
+        const dsAuthRes = await this._bypassPost(
           `https://${appId}.discordsays.com/.proxy/acf/authorize`,
           {
             "Content-Type": "application/json",
@@ -1683,6 +2060,7 @@
           },
           JSON.stringify({ code: authCode }),
         );
+
         let dsToken;
         try {
           dsToken = JSON.parse(dsAuthRes.body)?.token;
@@ -1694,7 +2072,7 @@
         }
         if (!dsToken) throw new Error("no discordsays token");
 
-        await Tasks._bypassPost(
+        await this._bypassPost(
           `https://${appId}.discordsays.com/.proxy/acf/quest/progress`,
           {
             "Content-Type": "application/json",
@@ -1711,54 +2089,50 @@
         );
         return true;
       } catch (e) {
-        if (
-          e instanceof TypeError &&
-          /failed to fetch|networkerror/i.test(e.message)
-        ) {
-          Logger.log(
-            `[Bypass] Discord's CSP blocks the script from reaching discordsays.com. Use the Vencord plugin port for the auto-bypass. Skipping "${t.name}".`,
-            "warn",
-          );
-          return false;
-        }
         const code = e?.body?.code;
+        const err = ErrorHandler.classify(e);
         if (code === 50165) {
           Logger.log(
-            `[Bypass] "${t.name}" can't be launched (age-gated or delisted). Discord blocks the proxy ticket.`,
+            `[Bypass] "${t.name}" can't be launched (age-gated or delisted).`,
             "warn",
           );
           return false;
         }
-        const parts = [];
-        if (e?.status) parts.push(`HTTP ${e.status}`);
-        if (code) parts.push(`code ${code}`);
-        if (e?.body?.message) parts.push(e.body.message);
-        else if (e?.message) parts.push(e.message);
-        else if (typeof e === "string") parts.push(e);
-        else if (e) {
-          try {
-            parts.push(JSON.stringify(e).slice(0, 200));
-          } catch {
-            parts.push(String(e));
-          }
-        }
         Logger.log(
-          `[Bypass] Failed: ${parts.join(" — ") || "unknown"}`,
+          `[Bypass] Failed for "${t.name}": ${err.status ? `HTTP ${err.status} — ` : ""}${err.message}`,
           "warn",
         );
         return false;
       } finally {
         if (preGrantIds) {
           try {
-            const after = await Mods.API.get({ url: "/oauth2/tokens" });
-            const ours = (after?.body || []).filter(
-              (tk) => tk.application?.id === appId && !preGrantIds.has(tk.id),
+            const after = await withTimeout(
+              Mods.API.get({ url: "/oauth2/tokens" }),
+              SYS.REQUEST_TIMEOUT,
+              "OAuth cleanup snapshot",
             );
-            for (const g of ours)
-              await Mods.API.del({ url: `/oauth2/tokens/${g.id}` });
+            const ours = (after?.body || []).filter(
+              (tk) =>
+                String(tk.application?.id) === String(appId) &&
+                !preGrantIds.has(tk.id),
+            );
+            for (const g of ours) {
+              try {
+                await withTimeout(
+                  Mods.API.del({ url: `/oauth2/tokens/${g.id}` }),
+                  SYS.REQUEST_TIMEOUT,
+                  "OAuth grant cleanup",
+                );
+              } catch (e) {
+                Logger.log(
+                  `[Bypass] Grant cleanup non-fatal: ${ErrorHandler.classify(e).message}`,
+                  "debug",
+                );
+              }
+            }
           } catch (e) {
             Logger.log(
-              `[Bypass] Deauthorize cleanup non-fatal: ${e?.message}`,
+              `[Bypass] Deauthorize cleanup non-fatal: ${ErrorHandler.classify(e).message}`,
               "debug",
             );
           }
@@ -1767,10 +2141,15 @@
     },
 
     async ACHIEVEMENT(q, t) {
+      let cur =
+        this.readProgress(q.userStatus, t.keyName, [
+          "ACHIEVEMENT_IN_ACTIVITY",
+        ]) ?? 0;
+
       Logger.updateTask(q.id, {
         name: t.name,
         type: "ACHIEVEMENT",
-        cur: 0,
+        cur,
         max: t.target,
         status: "RUNNING",
       });
@@ -1786,25 +2165,35 @@
         Logger.log(`[Achievement] Channel lookup: ${e.message}`, "debug");
       }
 
-      if (chan) {
+      if (chan && cur < t.target) {
         Logger.log(
-          `[Task] Attempting heartbeat spoofing for "${t.name}"...`,
+          `[Task] Attempting heartbeat path for "${t.name}"...`,
           "info",
         );
         const key = `call:${chan}:${rnd(1000, 9999)}`;
-        let cur = 0;
         let failCount = 0;
+        let lastProgressAt = Date.now();
+        const heartbeatDeadline =
+          Date.now() + Math.min(taskTimeoutMs(t), 15 * 60 * 1000);
 
-        while (cur < t.target && RUNTIME.running) {
+        while (
+          cur < t.target &&
+          RUNTIME.running &&
+          Date.now() < heartbeatDeadline &&
+          Date.now() - lastProgressAt < SYS.STALL_TIME
+        ) {
           try {
             const r = await Traffic.enqueue(`/quests/${q.id}/heartbeat`, {
               stream_key: key,
               terminal: false,
             });
-            cur =
-              r?.body?.progress?.[t.keyName]?.value ??
-              r?.body?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ??
-              cur;
+            const serverProgress = this.readProgress(r?.body, t.keyName, [
+              "ACHIEVEMENT_IN_ACTIVITY",
+            ]);
+            if (Number.isFinite(serverProgress) && serverProgress > cur) {
+              cur = Math.min(t.target, serverProgress);
+              lastProgressAt = Date.now();
+            }
             Logger.updateTask(q.id, {
               name: t.name,
               type: "ACHIEVEMENT",
@@ -1826,37 +2215,40 @@
           } catch (e) {
             failCount++;
             const err = ErrorHandler.classify(e);
-            if (err.isClientError) {
-              Logger.log(
-                `[Achievement] Heartbeat rejected (HTTP ${err.status}). Falling back to passive mode.`,
-                "warn",
-              );
+            if (err.isTerminalQuestError || failCount >= SYS.MAX_TASK_FAILURES)
               break;
-            }
-            if (failCount >= SYS.MAX_TASK_FAILURES) {
-              Logger.log(
-                `[Achievement] Too many failures. Falling back to passive mode.`,
-                "warn",
-              );
-              break;
-            }
+            Logger.log(
+              `[Achievement] Heartbeat transient failure ${failCount}/${SYS.MAX_TASK_FAILURES}: ${err.message}`,
+              "debug",
+            );
           }
-          await sleep(rnd(19000, 22000));
+          if (cur < t.target) await sleep(rnd(19000, 22000));
         }
 
-        if (cur >= t.target && RUNTIME.running) return Tasks.finish(q, t);
+        if (cur >= t.target && RUNTIME.running)
+          return await this.finish(q, t);
       }
 
       if (!RUNTIME.running) return;
-      const bypassed = await Tasks.bypassAchievement(q, t);
-      if (bypassed) return Tasks.finish(q, t);
+      const bypassed = await this.bypassAchievement(q, t);
+      if (bypassed) return await this.finish(q, t);
 
       if (!RUNTIME.running) return;
-      Logger.log(
-        `[Task] Skipping "${t.name}" — no auto-completion path worked.`,
-        "warn",
+
+      const relayAvailable = await this._probeRelay().catch(() => false);
+      const hasHelper =
+        relayAvailable ||
+        !!window.VencordNative?.pluginHelpers?.OrionQuests ||
+        !!window.DiscordNative;
+
+      return this.failTask(
+        q,
+        t,
+        hasHelper
+          ? "Achievement automation path failed; will retry"
+          : "No supported achievement automation path is available",
+        { permanent: !hasHelper },
       );
-      return Tasks.failTask(q, t, "Cannot auto-complete");
     },
 
     async ACTIVITY(q, t) {
@@ -1875,12 +2267,18 @@
       }
 
       if (!chan) {
-        return Tasks.failTask(q, t, "No voice channel found");
+        return this.failTask(q, t, "No voice channel found", {
+          permanent: true,
+        });
       }
 
       const key = `call:${chan}:${rnd(1000, 9999)}`;
-      let cur = 0;
+      let cur =
+        this.readProgress(q.userStatus, t.keyName, ["PLAY_ACTIVITY"]) ?? 0;
       let failCount = 0;
+      let lastProgressAt = Date.now();
+      const deadline = Date.now() + taskTimeoutMs(t);
+
       Logger.updateTask(q.id, {
         name: t.name,
         type: "ACTIVITY",
@@ -1889,18 +2287,25 @@
         status: "RUNNING",
       });
 
-      const startTime = Date.now();
-
       while (cur < t.target && RUNTIME.running) {
+        if (Date.now() >= deadline)
+          return this.failTask(q, t, "Task runtime limit reached");
+        if (Date.now() - lastProgressAt >= SYS.STALL_TIME)
+          return this.failTask(q, t, "Server progress stalled");
+
         try {
           const r = await Traffic.enqueue(`/quests/${q.id}/heartbeat`, {
             stream_key: key,
             terminal: false,
           });
-          cur =
-            r?.body?.progress?.[t.keyName]?.value ??
-            r?.body?.progress?.PLAY_ACTIVITY?.value ??
-            cur + 20;
+          const serverProgress = this.readProgress(r?.body, t.keyName, [
+            "PLAY_ACTIVITY",
+          ]);
+          if (Number.isFinite(serverProgress) && serverProgress > cur) {
+            cur = Math.min(t.target, serverProgress);
+            lastProgressAt = Date.now();
+          }
+
           Logger.updateTask(q.id, {
             name: t.name,
             type: "ACTIVITY",
@@ -1909,6 +2314,7 @@
             status: "RUNNING",
           });
           failCount = 0;
+
           if (cur >= t.target) {
             try {
               await Traffic.enqueue(`/quests/${q.id}/heartbeat`, {
@@ -1917,7 +2323,7 @@
               });
             } catch (e) {
               Logger.log(
-                `[ACTIVITY] Final heartbeat failed: ${e?.message}`,
+                `[ACTIVITY] Final heartbeat failed: ${ErrorHandler.classify(e).message}`,
                 "debug",
               );
             }
@@ -1926,15 +2332,13 @@
         } catch (e) {
           failCount++;
           const err = ErrorHandler.classify(e);
-          if (err.isClientError) {
-            Logger.log(
-              `[Task] Activity quest unavailable (HTTP ${err.status}). Skipping.`,
-              "warn",
-            );
-            return Tasks.failTask(q, t, `Client Error ${err.status}`);
+          if (err.isTerminalQuestError) {
+            return this.failTask(q, t, `HTTP ${err.status}`, {
+              permanent: true,
+            });
           }
           if (failCount >= SYS.MAX_TASK_FAILURES) {
-            return Tasks.failTask(q, t, "Too many network failures");
+            return this.failTask(q, t, "Too many transient heartbeat failures");
           }
           Logger.log(
             `[Task] ACTIVITY heartbeat failed (${failCount}/${SYS.MAX_TASK_FAILURES}): ${err.message}`,
@@ -1942,91 +2346,111 @@
           );
         }
 
-        if (Date.now() - startTime > SYS.MAX_TIME) {
-          return Tasks.failTask(q, t, "Timeout exceeded");
-        }
-        await sleep(rnd(19000, 22000));
+        if (cur < t.target) await sleep(rnd(19000, 22000));
       }
-      if (RUNTIME.running && cur >= t.target) Tasks.finish(q, t);
+
+      if (RUNTIME.running && cur >= t.target)
+        return await this.finish(q, t);
     },
 
     async finish(q, t) {
-      Logger.updateTask(q.id, {
-        name: t.name,
-        type: t.type,
-        cur: t.target,
-        max: t.target,
-        status: "COMPLETED",
-      });
-      Logger.log(`[Task] Completed "${t.name}"!`, "success");
-      Sound.play("tick");
+      if (this.finishing.has(q.id)) return this.finishing.get(q.id);
 
-      try {
-        if (typeof Notification !== "undefined") {
-          if (Notification.permission === "default") {
-            try {
-              await Notification.requestPermission();
-            } catch (_) {}
-          }
-          if (Notification.permission === "granted") {
-            new Notification(`${CONFIG.NAME}: Quest Completed`, {
-              body: t.name,
-              icon: "https://cdn.discordapp.com/emojis/1120042457007792168.webp",
-              tag: `orion-${q.id}`,
-            });
-          }
-        }
-      } catch (e) {
-        Logger.log(`[Notification] ${e.message}`, "debug");
-      }
+      const finishPromise = (async () => {
+        this.completed.add(q.id);
+        this.clearRetry(q.id);
 
-      if (RUNTIME.autoClaim) {
+        Logger.updateTask(q.id, {
+          name: t.name,
+          type: t.type,
+          cur: t.target,
+          max: t.target,
+          status: "COMPLETED",
+          actionRequired: null,
+        });
+        Logger.log(`[Task] Completed "${t.name}"!`, "success");
+        Sound.play("tick");
+
         try {
-          await sleep(rnd(2500, 6000));
-          if (!RUNTIME.running) return;
-          const claimRes = await this.claimReward(q.id);
-
-          if (claimRes?.body?.claimed_at) {
-            Logger.log(
-              `[Claim] Reward for "${t.name}" claimed automatically!`,
-              "success",
-            );
-            Logger.updateTask(q.id, {
-              name: t.name,
-              type: t.type,
-              cur: t.target,
-              max: t.target,
-              status: "CLAIMED",
-            });
-            setTimeout(() => Logger.removeTask(q.id), 2000);
-            return;
+          if (typeof Notification !== "undefined") {
+            if (Notification.permission === "default") {
+              try {
+                await withTimeout(
+                  Notification.requestPermission(),
+                  15000,
+                  "Notification permission",
+                );
+              } catch (_) {}
+            }
+            if (Notification.permission === "granted") {
+              new Notification(`${CONFIG.NAME}: Quest Completed`, {
+                body: t.name,
+                icon: "https://cdn.discordapp.com/emojis/1120042457007792168.webp",
+                tag: `orion-${q.id}`,
+              });
+            }
           }
         } catch (e) {
-          const needsCaptcha = e?.body?.captcha_key || e?.body?.captcha_sitekey;
-          if (needsCaptcha) {
-            Logger.log(
-              `[Claim] Captcha required for "${t.name}". Use UI button.`,
-              "warn",
-            );
-          } else {
-            Logger.log(
-              `[Claim] Auto-claim failed for "${t.name}": ${e?.body?.message ?? e?.message}`,
-              "err",
-            );
+          Logger.log(`[Notification] ${e.message}`, "debug");
+        }
+
+        if (RUNTIME.autoClaim) {
+          try {
+            const continued = await sleep(rnd(2500, 6000));
+            if (RUNTIME.running && continued !== false) {
+              const claimRes = await this.claimReward(q.id);
+
+              if (claimRes?.body?.claimed_at) {
+                Logger.log(
+                  `[Claim] Reward for "${t.name}" claimed automatically!`,
+                  "success",
+                );
+                Logger.updateTask(q.id, {
+                  name: t.name,
+                  type: t.type,
+                  cur: t.target,
+                  max: t.target,
+                  status: "CLAIMED",
+                  claimable: false,
+                });
+                setTimeout(() => Logger.removeTask(q.id), 2000);
+                return;
+              }
+            }
+          } catch (e) {
+            const needsCaptcha =
+              e?.body?.captcha_key || e?.body?.captcha_sitekey;
+            if (needsCaptcha) {
+              Logger.log(
+                `[Claim] Captcha required for "${t.name}". Use UI button.`,
+                "warn",
+              );
+            } else {
+              Logger.log(
+                `[Claim] Auto-claim deferred for "${t.name}": ${ErrorHandler.classify(e).message}`,
+                "warn",
+              );
+            }
           }
         }
-      }
 
-      Logger.updateTask(q.id, {
-        name: t.name,
-        type: t.type,
-        cur: t.target,
-        max: t.target,
-        status: "COMPLETED",
-        claimable: true,
-        questId: q.id,
+        Logger.updateTask(q.id, {
+          name: t.name,
+          type: t.type,
+          cur: t.target,
+          max: t.target,
+          status: "COMPLETED",
+          claimable: true,
+          questId: q.id,
+        });
+      })().finally(() => {
+        this.finishing.delete(q.id);
       });
+
+      this.finishing.set(q.id, finishPromise);
+      return finishPromise;
     },
+
   };
 
   /* ── webpack module extraction ─────────────────────────────── */
@@ -2243,43 +2667,60 @@
 
   async function runConcurrent(tasks, limit) {
     const executing = new Set();
+    const all = [];
 
     for (const task of tasks) {
       if (!RUNTIME.running) break;
 
-      const p = task().finally(() => executing.delete(p));
+      let p;
+      p = Promise.resolve()
+        .then(task)
+        .catch((e) => {
+          Logger.log(
+            `[Runner] Isolated task failure: ${e?.message ?? e}`,
+            "err",
+          );
+        })
+        .finally(() => executing.delete(p));
       executing.add(p);
-
-      await sleep(rnd(1500, 4000));
+      all.push(p);
 
       if (executing.size >= limit) {
         await Promise.race(executing);
       }
+
+      if (RUNTIME.running) await sleep(rnd(500, 1000));
     }
 
-    return Promise.allSettled(executing);
+    await Promise.allSettled(all);
   }
 
   async function main() {
     Logger.init();
-    if (!loadModules())
-      return Logger.log(
+    if (!loadModules()) {
+      Logger.log(
         "[System] Failed to load Discord modules. Aborting.",
         "err",
       );
+      return Logger.shutdown();
+    }
 
     const getQuests = () => {
-      const q = Mods.QuestStore.quests;
-      return q instanceof Map ? [...q.values()] : Object.values(q);
+      const raw = Mods.QuestStore?.quests;
+      if (raw instanceof Map) return [...raw.values()];
+      if (raw && typeof raw === "object") return Object.values(raw);
+      return [];
     };
 
-    let quests = getQuests().filter(
-      (q) =>
-        !q.userStatus?.completedAt &&
-        notExpired(q) &&
-        q.id !== CONST.ID &&
-        !Tasks.skipped.has(q.id),
-    );
+    const isEligible = (q) =>
+      !!q &&
+      !q.userStatus?.completedAt &&
+      !Tasks.completed.has(q.id) &&
+      notExpired(q) &&
+      q.id !== CONST.ID &&
+      !Tasks.skipped.has(q.id);
+
+    let quests = getQuests().filter(isEligible);
 
     if (!quests.length) {
       Logger.log("[System] All available quests are completed!", "success");
@@ -2306,19 +2747,44 @@
         Logger.log(`[Cycle] Starting loop #${loopCount}...`, "info");
         quests = getQuests();
 
-        const active = quests.filter(
+        for (const q of quests) {
+          if (q?.userStatus?.completedAt) {
+            Tasks.completed.add(q.id);
+            Tasks.clearRetry(q.id);
+          }
+        }
+
+        const remaining = quests.filter(
           (q) =>
-            pickerResult.selectedQuests.has(q.id) &&
-            !q.userStatus?.completedAt &&
-            notExpired(q) &&
-            q.id !== CONST.ID &&
-            !Tasks.skipped.has(q.id),
+            pickerResult.selectedQuests.has(String(q.id)) &&
+            isEligible(q),
+        );
+
+        if (!remaining.length) {
+          Logger.log("[System] All selected runnable quests are complete.", "success");
+          Sound.play("done");
+          break;
+        }
+
+        const active = remaining.filter(
+          (q) => !Tasks.inFlight.has(q.id) && Tasks.canRun(q.id),
         );
 
         if (!active.length) {
-          Logger.log("[System] All available quests are completed!", "success");
-          Sound.play("done");
-          break;
+          const nextRetry = Math.min(
+            ...remaining.map((q) => Tasks.retryAfter.get(q.id) ?? Date.now() + 1000),
+          );
+          const waitMs = Math.max(
+            500,
+            Math.min(5000, nextRetry - Date.now()),
+          );
+          Logger.log(
+            `[Cycle] ${remaining.length} quest(s) deferred; retrying shortly...`,
+            "debug",
+          );
+          await sleep(waitMs);
+          loopCount++;
+          continue;
         }
 
         const queues = { video: [], game: [] };
@@ -2326,53 +2792,70 @@
         active.forEach((q) => {
           try {
             const cfg = q.config?.taskConfig ?? q.config?.taskConfigV2;
+            const fallbackName =
+              q.config?.messages?.questName ?? `Quest ${q.id}`;
+
             if (!cfg?.tasks || typeof cfg.tasks !== "object") {
-              Logger.log(
-                `[Quest] ${q.id} has invalid task config. Skipping.`,
-                "warn",
+              Tasks.failTask(
+                q,
+                {
+                  name: fallbackName,
+                  type: "UNKNOWN",
+                  target: 0,
+                },
+                "Invalid task configuration",
+                { permanent: true },
               );
               return;
             }
 
-            const typeData = Tasks.detectType(cfg, q.config?.application?.id);
+            const typeData = Tasks.detectType(cfg);
             if (!typeData) {
-              Logger.log(
-                `[Quest] Unknown task type: ${q.config?.messages?.questName ?? q.id}`,
-                "warn",
-              );
-              return;
-            }
-
-            if (
-              !SYS.IS_DESKTOP &&
-              (typeData.type === "GAME" || typeData.type === "STREAM")
-            ) {
-              Logger.log(
-                `[Quest] "${q.config?.messages?.questName}" requires desktop app. Skipping.`,
-                "warn",
+              Tasks.failTask(
+                q,
+                {
+                  name: fallbackName,
+                  type: "UNKNOWN",
+                  target: 0,
+                },
+                "Unsupported quest task type",
+                { permanent: true },
               );
               return;
             }
 
             const { type, keyName, target } = typeData;
-            if (target <= 0) {
-              Logger.log(
-                `[Quest] Invalid target (${target}) for ${q.id}. Skipping.`,
-                "warn",
-              );
-              return;
-            }
-
             const tInfo = {
               id: q.id,
               appId: q.config?.application?.id ?? 0,
-              name: q.config?.messages?.questName ?? "Unknown Quest",
+              name: fallbackName,
               target,
               type,
               keyName,
             };
 
-            if (!q.userStatus?.enrolledAt && !RUNTIME.autoEnroll) {
+            if (!Number.isFinite(target) || target <= 0) {
+              Tasks.failTask(q, tInfo, `Invalid target (${target})`, {
+                permanent: true,
+              });
+              return;
+            }
+
+            if (
+              !SYS.IS_DESKTOP &&
+              (type === "GAME" || type === "STREAM")
+            ) {
+              Tasks.failTask(q, tInfo, "Requires Discord Desktop", {
+                permanent: true,
+              });
+              return;
+            }
+
+            if (
+              !q.userStatus?.enrolledAt &&
+              !Tasks.enrolled.has(q.id) &&
+              !RUNTIME.autoEnroll
+            ) {
               Logger.updateTask(tInfo.id, {
                 name: tInfo.name,
                 type: tInfo.type,
@@ -2381,67 +2864,95 @@
                 status: "PENDING",
                 actionRequired: "ENROLL",
               });
+              Tasks.retryAfter.set(q.id, Date.now() + 5000);
               return;
             }
-
-            if (
-              Logger.tasks.has(q.id) &&
-              Logger.tasks.get(q.id).status === "RUNNING"
-            )
-              return;
 
             Logger.updateTask(tInfo.id, {
               name: tInfo.name,
               type: tInfo.type,
-              cur: 0,
+              cur: Logger.tasks.get(tInfo.id)?.cur ?? 0,
               max: tInfo.target,
               status: "QUEUE",
               actionRequired: null,
             });
 
             const taskFunc = async () => {
-              if (!q.userStatus?.enrolledAt) {
-                Logger.log(`[Enroll] Accepting quest: ${tInfo.name}`, "info");
-                try {
-                  await Traffic.enqueue(`/quests/${q.id}/enroll`, {
-                    location: 11,
-                    is_targeted: false,
-                  });
-                  await sleep(rnd(800, 1500));
-                } catch (e) {
-                  const err = ErrorHandler.classify(e);
-                  if (ErrorHandler.isSkippableQuest(e)) {
-                    Tasks.skipped.add(q.id);
-                    Logger.log(
-                      `[Enroll] ${tInfo.name} unavailable (${err.status}). Skipping.`,
-                      "warn",
-                    );
-                  } else {
-                    Logger.log(
-                      `[Enroll] Failed for ${tInfo.name}: ${err.message}`,
-                      "err",
+              if (Tasks.inFlight.has(q.id) || !RUNTIME.running) return;
+              Tasks.inFlight.add(q.id);
+              Tasks.retryAfter.delete(q.id);
+
+              try {
+                if (
+                  !q.userStatus?.enrolledAt &&
+                  !Tasks.enrolled.has(q.id)
+                ) {
+                  Logger.log(
+                    `[Enroll] Accepting quest: ${tInfo.name}`,
+                    "info",
+                  );
+                  try {
+                    await Traffic.enqueue(`/quests/${q.id}/enroll`, {
+                      location: 11,
+                      is_targeted: false,
+                    });
+                    Tasks.enrolled.add(q.id);
+                    await sleep(rnd(800, 1500));
+                  } catch (e) {
+                    const err = ErrorHandler.classify(e);
+                    return Tasks.failTask(
+                      q,
+                      tInfo,
+                      `Enrollment failed: ${err.message}`,
+                      { permanent: err.isTerminalQuestError },
                     );
                   }
-                  return Tasks.failTask(q, tInfo, `Enrollment failed`);
                 }
-              }
 
-              if (type === "WATCH_VIDEO")
-                return Tasks.VIDEO(q, tInfo, q.userStatus);
-              if (type === "ACHIEVEMENT") return Tasks.ACHIEVEMENT(q, tInfo);
-              const runner =
-                type === "STREAM"
-                  ? Tasks.STREAM
-                  : type === "ACTIVITY"
-                    ? Tasks.ACTIVITY
-                    : Tasks.GAME;
-              return runner(q, tInfo, q.userStatus);
+                if (!RUNTIME.running) return;
+                if (type === "WATCH_VIDEO")
+                  return await Tasks.VIDEO(q, tInfo, q.userStatus);
+                if (type === "ACHIEVEMENT")
+                  return await Tasks.ACHIEVEMENT(q, tInfo);
+                if (type === "STREAM")
+                  return await Tasks.STREAM(q, tInfo, q.userStatus);
+                if (type === "ACTIVITY")
+                  return await Tasks.ACTIVITY(q, tInfo, q.userStatus);
+                return await Tasks.GAME(q, tInfo, q.userStatus);
+              } catch (e) {
+                const err = ErrorHandler.classify(e);
+                Logger.log(
+                  `[Task] Unexpected failure in "${tInfo.name}": ${err.message}`,
+                  "err",
+                );
+                Tasks.failTask(
+                  q,
+                  tInfo,
+                  `Unexpected runtime failure: ${err.message}`,
+                  { permanent: err.isTerminalQuestError },
+                );
+              } finally {
+                Tasks.inFlight.delete(q.id);
+              }
             };
 
             if (type === "WATCH_VIDEO") queues.video.push(taskFunc);
             else queues.game.push(taskFunc);
           } catch (e) {
-            Logger.log(`[Quest] Error processing ${q.id}: ${e.message}`, "err");
+            Logger.log(
+              `[Quest] Error preparing ${q.id}: ${e?.message ?? e}`,
+              "err",
+            );
+            Tasks.failTask(
+              q,
+              {
+                name: q.config?.messages?.questName ?? `Quest ${q.id}`,
+                type: "UNKNOWN",
+                target: 0,
+              },
+              `Preparation failed: ${e?.message ?? e}`,
+              { permanent: true },
+            );
           }
         });
 
@@ -2449,23 +2960,31 @@
 
         if (totalTasks > 0) {
           Logger.log(
-            `[Cycle] Processing: ${queues.video.length} videos, ${queues.game.length} games.`,
+            `[Cycle] Processing: ${queues.video.length} video quest(s), ${queues.game.length} other quest(s).`,
             "info",
           );
-          const pGames = runConcurrent(queues.game, 1);
-          const pVideos = runConcurrent(queues.video, 2);
-          await Promise.all([pGames, pVideos]);
+          await Promise.all([
+            runConcurrent(queues.game, 1),
+            runConcurrent(queues.video, 2),
+          ]);
         } else {
-          if (active.length === 0) {
-            Logger.log(
-              "[System] All available quests are completed!",
-              "success",
-            );
-            break;
-          } else await sleep(rnd(4000, 6000));
+          await sleep(1000);
         }
 
         if (!RUNTIME.running) break;
+
+        const afterCycle = getQuests().filter(
+          (q) =>
+            pickerResult.selectedQuests.has(String(q.id)) &&
+            isEligible(q),
+        );
+        if (!afterCycle.length) {
+          Logger.log(
+            `[Cycle] Loop #${loopCount} completed the remaining quests.`,
+            "success",
+          );
+          continue;
+        }
 
         if (RUNTIME.randomDelay) {
           const delayMs = rnd(60000, 1800000);
@@ -2488,7 +3007,7 @@
           "err",
         );
         console.error(cycleError);
-        await sleep(3000);
+        if (RUNTIME.running) await sleep(3000);
         loopCount++;
       }
     }
@@ -2496,9 +3015,9 @@
     const hasUnclaimed = [...Logger.tasks.values()].some(
       (t) => t.claimable && !t.removing,
     );
-    if (hasUnclaimed) {
+    if (hasUnclaimed && RUNTIME.running) {
       Logger.log(
-        "[System] Quest cycle finished. Claim your rewards above, then click STOP.",
+        "[System] Quest cycle finished. Claim remaining rewards above, then click STOP.",
         "info",
       );
       return;
@@ -2507,16 +3026,36 @@
     Logger.shutdown();
   }
 
+  if (globalThis.__QUESTMASTER_TEST__) {
+    globalThis.__QuestMasterHooks = {
+      CONFIG,
+      SYS,
+      RUNTIME,
+      ErrorHandler,
+      Tasks,
+      Traffic,
+      Patcher,
+      Logger,
+      withTimeout,
+      taskTimeoutMs,
+      runConcurrent,
+      setMods(value) {
+        Mods = value;
+      },
+    };
+    return;
+  }
+
   main().catch((e) => {
     const msg = e?.message ?? e?.toString?.() ?? "Unknown fatal error";
     console.error(`[${CONFIG.NAME} Fatal]`, e);
     try {
       Logger.log(`[System] FATAL: ${msg}`, "err");
     } catch (_) {}
-    Logger.shutdown();
-
-    setTimeout(() => {
+    try {
+      Logger.shutdown();
+    } catch (_) {
       window.orionLock = false;
-    }, 1500);
+    }
   });
 })();
