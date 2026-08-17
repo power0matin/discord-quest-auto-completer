@@ -2,10 +2,11 @@
 
 <!-- repo-badges:start -->
 <p align="center">
-  <a href="https://github.com/power0matin/discord-quest-auto-completer/stargazers"><img src="https://img.shields.io/github/stars/power0matin/discord-quest-auto-completer?style=flat-square&label=Stars&labelColor=18181B&color=F59E0B&logo=github&logoColor=white" alt="GitHub Stars"/></a>
-  <a href="https://github.com/power0matin/discord-quest-auto-completer/forks"><img src="https://img.shields.io/github/forks/power0matin/discord-quest-auto-completer?style=flat-square&label=Forks&labelColor=18181B&color=6366F1&logo=github&logoColor=white" alt="GitHub Forks"/></a>
-  <a href="https://github.com/power0matin/discord-quest-auto-completer/issues"><img src="https://img.shields.io/github/issues/power0matin/discord-quest-auto-completer?style=flat-square&label=Issues&labelColor=18181B&color=22C55E&logo=github&logoColor=white" alt="GitHub Issues"/></a>
-  <a href="https://github.com/power0matin/discord-quest-auto-completer/blob/main/LICENSE"><img src="https://img.shields.io/github/license/power0matin/discord-quest-auto-completer?style=flat-square&label=License&labelColor=18181B&color=EF4444&logo=github&logoColor=white" alt="GitHub License"/></a>
+  <a href="https://hits.sh/github.com/power0matin/discord-quest-auto-completer/"><img src="https://hits.sh/github.com/power0matin/discord-quest-auto-completer.svg?style=flat-square&amp;label=Views&amp;labelColor=18181B&amp;color=0EA5E9&amp;logo=github" alt="Repository Views"/></a>
+  <a href="https://github.com/power0matin/discord-quest-auto-completer/stargazers"><img src="https://img.shields.io/github/stars/power0matin/discord-quest-auto-completer?style=flat-square&amp;label=Stars&amp;labelColor=18181B&amp;color=F59E0B&amp;logo=github&amp;logoColor=white" alt="GitHub Stars"/></a>
+  <a href="https://github.com/power0matin/discord-quest-auto-completer/forks"><img src="https://img.shields.io/github/forks/power0matin/discord-quest-auto-completer?style=flat-square&amp;label=Forks&amp;labelColor=18181B&amp;color=6366F1&amp;logo=github&amp;logoColor=white" alt="GitHub Forks"/></a>
+  <a href="https://github.com/power0matin/discord-quest-auto-completer/issues"><img src="https://img.shields.io/github/issues/power0matin/discord-quest-auto-completer?style=flat-square&amp;label=Issues&amp;labelColor=18181B&amp;color=22C55E&amp;logo=github&amp;logoColor=white" alt="GitHub Issues"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/power0matin/discord-quest-auto-completer?style=flat-square&amp;label=License&amp;labelColor=18181B&amp;color=EF4444&amp;logo=github&amp;logoColor=white" alt="GitHub License"/></a>
 </p>
 <!-- repo-badges:end -->
 
