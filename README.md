@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
+  <a href="#quick-start--how-to-auto-complete-discord-quests">Quick Start</a> •
   <a href="#how-it-works">How It Works</a> •
   <a href="#quest-types">Quest Types</a> •
   <a href="#configuration">Configuration</a> •
