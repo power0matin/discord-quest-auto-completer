@@ -18,14 +18,13 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
+  <a href="#features--discord-quest-auto-completer">Features</a> •
   <a href="#quick-start--how-to-auto-complete-discord-quests">Quick Start</a> •
-  <a href="#how-it-works">How It Works</a> •
-  <a href="#quest-types">Quest Types</a> •
-  <a href="#configuration">Configuration</a> •
-  <a href="#troubleshooting">Troubleshooting</a> •
-  <a href="#faq">FAQ</a> •
-  <a href="#license">License</a>
+  <a href="#how-it-works--discord-quest-automation">How It Works</a> •
+  <a href="#quest-types--discord-quest-categories">Quest Types</a> •
+  <a href="#configuration--discord-quest-settings">Configuration</a> •
+  <a href="#troubleshooting--discord-quest-issues">Troubleshooting</a> •
+  <a href="#faq--discord-quest-auto-completer-questions">FAQ</a>
 </p>
 
 <p align="center">
