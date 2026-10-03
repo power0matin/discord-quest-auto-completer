@@ -85,15 +85,139 @@ assert(H, "QuestMaster test hooks not exported");
 
   // 2) Version and task routing.
   assert.equal(H.CONFIG.VERSION, "v1.2.0");
-  assert.equal(H.Tasks.detectType({ tasks: { PLAY_ACTIVITY: { target: 10 } } }).type, "ACTIVITY");
-  assert.equal(H.Tasks.detectType({ tasks: { PLAY_ON_DESKTOP: { target: 10 } } }).type, "GAME");
-  assert.equal(H.Tasks.detectType({ tasks: { ACHIEVEMENT_IN_ACTIVITY: { target: 1 } } }).type, "ACHIEVEMENT");
-  assert.equal(H.Tasks.detectType({ tasks: { FUTURE_UNKNOWN: { target: 9 } } }), null);
+assert.equal(
+  H.Tasks.detectType({
+    tasks: {
+      PLAY_ACTIVITY: {
+        target: 10,
+      },
+    },
+  }).type,
+  "ACTIVITY",
+);
+
+const legacyGameType =
+  H.Tasks.detectType(
+    {
+      tasks: {
+        PLAY_ON_DESKTOP: {
+          target: 10,
+        },
+      },
+    },
+    "987654321098765432",
+  );
+
+assert.equal(
+  legacyGameType.type,
+  "GAME",
+);
+
+assert.equal(
+  String(legacyGameType.appId),
+  "987654321098765432",
+);
+
+const v2GameType =
+  H.Tasks.detectType({
+    tasks: {
+      PLAY_ON_DESKTOP: {
+        target: 10,
+
+        applications: [
+          {
+            id: "123456789012345678",
+          },
+        ],
+      },
+    },
+  });
+
+assert.equal(
+  v2GameType.type,
+  "GAME",
+);
+
+assert.equal(
+  v2GameType.keyName,
+  "PLAY_ON_DESKTOP",
+);
+
+assert.equal(
+  String(v2GameType.appId),
+  "123456789012345678",
+);
+
+assert.equal(
+  H.Tasks.detectType({
+    tasks: {
+      ACHIEVEMENT_IN_ACTIVITY: {
+        target: 1,
+      },
+    },
+  }).type,
+  "ACHIEVEMENT",
+);
+
+assert.equal(
+  H.Tasks.detectType({
+    tasks: {
+      FUTURE_UNKNOWN: {
+        target: 9,
+      },
+    },
+  }),
+  null,
+);
 
   // 3) Progress is server-authoritative.
-  assert.equal(H.Tasks.readProgress({}, "PLAY_ACTIVITY", ["PLAY_ACTIVITY"]), null);
-  assert.equal(H.Tasks.readProgress({ progress: { PLAY_ACTIVITY: { value: 22 } } }, "PLAY_ACTIVITY"), 22);
-  assert(!src.includes("cur + 20"), "synthetic activity progress returned");
+assert.equal(
+  H.Tasks.readProgress(
+    {},
+    "PLAY_ACTIVITY",
+    ["PLAY_ACTIVITY"],
+  ),
+  null,
+);
+
+assert.equal(
+  H.Tasks.readProgress(
+    {
+      progress: {
+        PLAY_ACTIVITY: {
+          value: 22,
+        },
+      },
+    },
+    "PLAY_ACTIVITY",
+  ),
+  22,
+);
+
+const progressMap =
+  new Map([
+    [
+      "PLAY_ON_DESKTOP",
+      {
+        value: 17,
+      },
+    ],
+  ]);
+
+assert.equal(
+  H.Tasks.readProgress(
+    {
+      progress: progressMap,
+    },
+    "PLAY_ON_DESKTOP",
+  ),
+  17,
+);
+
+assert(
+  !src.includes("cur + 20"),
+  "synthetic activity progress returned",
+);
 
   // 4) A permanently hung operation times out.
   let timedOut = false;
