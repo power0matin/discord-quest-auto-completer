@@ -12,30 +12,65 @@ const realClearTimeout = clearTimeout;
 
 const elements = new Map();
 const document = {
-  getElementById(id) { return elements.get(id) || null; },
+  getElementById(id) {
+    return elements.get(id) || null;
+  },
   createElement(tag) {
     return {
       id: "",
       tagName: tag,
       style: {},
       children: [],
-      classList: { add(){}, remove(){}, contains(){return false;}, toggle(){} },
-      appendChild(x) { this.children.push(x); if (x.id) elements.set(x.id, x); return x; },
-      remove() { if (this.id) elements.delete(this.id); },
-      addEventListener(){},
-      removeEventListener(){},
-      querySelector(){ return null; },
-      querySelectorAll(){ return []; },
-      set innerHTML(v) { this._innerHTML = v; },
-      get innerHTML() { return this._innerHTML || ""; },
-      set textContent(v) { this._textContent = v; },
-      get textContent() { return this._textContent || ""; },
+      classList: {
+        add() {},
+        remove() {},
+        contains() {
+          return false;
+        },
+        toggle() {},
+      },
+      appendChild(x) {
+        this.children.push(x);
+        if (x.id) elements.set(x.id, x);
+        return x;
+      },
+      remove() {
+        if (this.id) elements.delete(this.id);
+      },
+      addEventListener() {},
+      removeEventListener() {},
+      querySelector() {
+        return null;
+      },
+      querySelectorAll() {
+        return [];
+      },
+      set innerHTML(v) {
+        this._innerHTML = v;
+      },
+      get innerHTML() {
+        return this._innerHTML || "";
+      },
+      set textContent(v) {
+        this._textContent = v;
+      },
+      get textContent() {
+        return this._textContent || "";
+      },
     };
   },
-  head: { appendChild(x) { if (x.id) elements.set(x.id, x); } },
-  body: { appendChild(x) { if (x.id) elements.set(x.id, x); } },
-  addEventListener(){},
-  removeEventListener(){},
+  head: {
+    appendChild(x) {
+      if (x.id) elements.set(x.id, x);
+    },
+  },
+  body: {
+    appendChild(x) {
+      if (x.id) elements.set(x.id, x);
+    },
+  },
+  addEventListener() {},
+  removeEventListener() {},
 };
 
 const ctx = {
@@ -85,19 +120,18 @@ assert(H, "QuestMaster test hooks not exported");
 
   // 2) Version and task routing.
   assert.equal(H.CONFIG.VERSION, "v1.2.0");
-assert.equal(
-  H.Tasks.detectType({
-    tasks: {
-      PLAY_ACTIVITY: {
-        target: 10,
+  assert.equal(
+    H.Tasks.detectType({
+      tasks: {
+        PLAY_ACTIVITY: {
+          target: 10,
+        },
       },
-    },
-  }).type,
-  "ACTIVITY",
-);
+    }).type,
+    "ACTIVITY",
+  );
 
-const legacyGameType =
-  H.Tasks.detectType(
+  const legacyGameType = H.Tasks.detectType(
     {
       tasks: {
         PLAY_ON_DESKTOP: {
@@ -108,18 +142,11 @@ const legacyGameType =
     "987654321098765432",
   );
 
-assert.equal(
-  legacyGameType.type,
-  "GAME",
-);
+  assert.equal(legacyGameType.type, "GAME");
 
-assert.equal(
-  String(legacyGameType.appId),
-  "987654321098765432",
-);
+  assert.equal(String(legacyGameType.appId), "987654321098765432");
 
-const v2GameType =
-  H.Tasks.detectType({
+  const v2GameType = H.Tasks.detectType({
     tasks: {
       PLAY_ON_DESKTOP: {
         target: 10,
@@ -133,69 +160,55 @@ const v2GameType =
     },
   });
 
-assert.equal(
-  v2GameType.type,
-  "GAME",
-);
+  assert.equal(v2GameType.type, "GAME");
 
-assert.equal(
-  v2GameType.keyName,
-  "PLAY_ON_DESKTOP",
-);
+  assert.equal(v2GameType.keyName, "PLAY_ON_DESKTOP");
 
-assert.equal(
-  String(v2GameType.appId),
-  "123456789012345678",
-);
+  assert.equal(String(v2GameType.appId), "123456789012345678");
 
-assert.equal(
-  H.Tasks.detectType({
-    tasks: {
-      ACHIEVEMENT_IN_ACTIVITY: {
-        target: 1,
-      },
-    },
-  }).type,
-  "ACHIEVEMENT",
-);
-
-assert.equal(
-  H.Tasks.detectType({
-    tasks: {
-      FUTURE_UNKNOWN: {
-        target: 9,
-      },
-    },
-  }),
-  null,
-);
-
-  // 3) Progress is server-authoritative.
-assert.equal(
-  H.Tasks.readProgress(
-    {},
-    "PLAY_ACTIVITY",
-    ["PLAY_ACTIVITY"],
-  ),
-  null,
-);
-
-assert.equal(
-  H.Tasks.readProgress(
-    {
-      progress: {
-        PLAY_ACTIVITY: {
-          value: 22,
+  assert.equal(
+    H.Tasks.detectType({
+      tasks: {
+        ACHIEVEMENT_IN_ACTIVITY: {
+          target: 1,
         },
       },
-    },
-    "PLAY_ACTIVITY",
-  ),
-  22,
-);
+    }).type,
+    "ACHIEVEMENT",
+  );
 
-const progressMap =
-  new Map([
+  assert.equal(
+    H.Tasks.detectType({
+      tasks: {
+        FUTURE_UNKNOWN: {
+          target: 9,
+        },
+      },
+    }),
+    null,
+  );
+
+  // 3) Progress is server-authoritative.
+  assert.equal(
+    H.Tasks.readProgress({}, "PLAY_ACTIVITY", ["PLAY_ACTIVITY"]),
+    null,
+  );
+
+  assert.equal(
+    H.Tasks.readProgress(
+      {
+        progress: {
+          PLAY_ACTIVITY: {
+            value: 22,
+          },
+        },
+      },
+      "PLAY_ACTIVITY",
+    ),
+    22,
+  );
+
+  const progressMap = new Map([
     [
       "PLAY_ON_DESKTOP",
       {
@@ -204,20 +217,17 @@ const progressMap =
     ],
   ]);
 
-assert.equal(
-  H.Tasks.readProgress(
-    {
-      progress: progressMap,
-    },
-    "PLAY_ON_DESKTOP",
-  ),
-  17,
-);
+  assert.equal(
+    H.Tasks.readProgress(
+      {
+        progress: progressMap,
+      },
+      "PLAY_ON_DESKTOP",
+    ),
+    17,
+  );
 
-assert(
-  !src.includes("cur + 20"),
-  "synthetic activity progress returned",
-);
+  assert(!src.includes("cur + 20"), "synthetic activity progress returned");
 
   // 4) A permanently hung operation times out.
   let timedOut = false;
@@ -244,7 +254,10 @@ assert(
   H.Traffic.stopped = false;
   H.Traffic.processing = false;
   H.Traffic.queue = [];
-  const first = H.Traffic.enqueue("/hung", {}).then(() => false, () => true);
+  const first = H.Traffic.enqueue("/hung", {}).then(
+    () => false,
+    () => true,
+  );
   const second = H.Traffic.enqueue("/next", {});
   assert(await first, "hung request should reject");
   assert((await second).body.ok, "queue did not recover after timeout");
@@ -271,7 +284,10 @@ assert(
   // 7) Retryable vs terminal failures are distinct.
   assert(H.ErrorHandler.classify({ status: 500 }).isRetryable);
   assert(H.ErrorHandler.classify({ status: 403 }).isTerminalQuestError);
-  assert(H.ErrorHandler.classify({ code: "ETIMEDOUT", message: "timed out" }).isRetryable);
+  assert(
+    H.ErrorHandler.classify({ code: "ETIMEDOUT", message: "timed out" })
+      .isRetryable,
+  );
 
   // 8) Transient task failure is deferred; terminal failure is skipped.
   const qTransient = { id: "qt" };
@@ -284,165 +300,139 @@ assert(
   H.Tasks.failTask(qTerminal, task, "forbidden", { permanent: true });
   assert(H.Tasks.skipped.has("qp"), "terminal quest was not skipped");
 
-// 9) RunningGameStore patch is fully restored and modern
-// game views expose injected games.
-const store = {
+  // 9) RunningGameStore patch is fully restored and modern
+  // game views expose injected games.
+  const store = {
+    getRunningGames() {
+      return [{ pid: 1 }];
+    },
 
-  getRunningGames() {
-    return [{ pid: 1 }];
-  },
+    getGameForPID(pid) {
+      return pid === 1 ? { pid: 1 } : null;
+    },
 
-  getGameForPID(pid) {
-    return pid === 1
-      ? { pid: 1 }
-      : null;
-  },
+    getVisibleGame() {
+      return null;
+    },
 
-  getVisibleGame() {
-    return null;
-  },
+    getVisibleRunningGames() {
+      return [{ pid: 1 }];
+    },
 
-  getVisibleRunningGames() {
-    return [{ pid: 1 }];
-  },
+    getCandidateGames() {
+      return [{ pid: 1 }];
+    },
 
-  getCandidateGames() {
-    return [{ pid: 1 }];
-  },
+    getRunningDiscordApplicationIds() {
+      return new Set(["1"]);
+    },
+  };
 
-  getRunningDiscordApplicationIds() {
-    return new Set(["1"]);
-  },
+  const origGames = store.getRunningGames;
 
-};
+  const origPid = store.getGameForPID;
 
-const origGames =
-  store.getRunningGames;
+  const origVisibleGame = store.getVisibleGame;
 
-const origPid =
-  store.getGameForPID;
+  const origVisibleRunningGames = store.getVisibleRunningGames;
 
-const origVisibleGame =
-  store.getVisibleGame;
+  const origCandidates = store.getCandidateGames;
 
-const origVisibleRunningGames =
-  store.getVisibleRunningGames;
+  const origApplicationIds = store.getRunningDiscordApplicationIds;
 
-const origCandidates =
-  store.getCandidateGames;
+  H.setMods({
+    RunStore: store,
+    Dispatcher: {
+      dispatch() {},
+    },
+  });
 
-const origApplicationIds =
-  store.getRunningDiscordApplicationIds;
+  assert(H.Patcher.init(store), "Patcher failed to initialize");
 
-H.setMods({
-  RunStore: store,
-  Dispatcher: {
-    dispatch() {},
-  },
-});
+  const fakeGame = {
+    id: "123456789012345678",
+    name: "Mock Game",
+    pid: 9,
+  };
 
-assert(
-  H.Patcher.init(store),
-  "Patcher failed to initialize",
-);
+  H.Patcher.add(fakeGame);
 
-const fakeGame = {
-  id: "123456789012345678",
-  name: "Mock Game",
-  pid: 9,
-};
+  assert(
+    store.getRunningGames().some((g) => g.pid === 9),
+    "fake game missing from getRunningGames",
+  );
 
-H.Patcher.add(fakeGame);
+  assert.strictEqual(
+    store.getGameForPID(9),
+    fakeGame,
+    "fake game missing from getGameForPID",
+  );
 
-assert(
-  store.getRunningGames().some(
-    (g) => g.pid === 9,
-  ),
-  "fake game missing from getRunningGames",
-);
+  assert.strictEqual(
+    store.getVisibleGame(),
+    fakeGame,
+    "fake game missing from getVisibleGame",
+  );
 
-assert.strictEqual(
-  store.getGameForPID(9),
-  fakeGame,
-  "fake game missing from getGameForPID",
-);
+  assert(
+    store.getVisibleRunningGames().some((g) => g.pid === 9),
+    "fake game missing from getVisibleRunningGames",
+  );
 
-assert.strictEqual(
-  store.getVisibleGame(),
-  fakeGame,
-  "fake game missing from getVisibleGame",
-);
+  assert(
+    store.getCandidateGames().some((g) => g.pid === 9),
+    "fake game missing from getCandidateGames",
+  );
 
-assert(
-  store.getVisibleRunningGames().some(
-    (g) => g.pid === 9,
-  ),
-  "fake game missing from getVisibleRunningGames",
-);
+  const applicationIds = store.getRunningDiscordApplicationIds();
 
-assert(
-  store.getCandidateGames().some(
-    (g) => g.pid === 9,
-  ),
-  "fake game missing from getCandidateGames",
-);
+  assert(
+    applicationIds instanceof Set,
+    "application IDs should preserve Set type",
+  );
 
-const applicationIds =
-  store.getRunningDiscordApplicationIds();
+  assert(
+    applicationIds.has("123456789012345678"),
+    "fake application ID missing from running IDs",
+  );
 
-assert(
-  applicationIds instanceof Set,
-  "application IDs should preserve Set type",
-);
+  H.Patcher.clean();
 
-assert(
-  applicationIds.has(
-    "123456789012345678",
-  ),
-  "fake application ID missing from running IDs",
-);
+  assert.strictEqual(store.getRunningGames, origGames);
 
-H.Patcher.clean();
+  assert.strictEqual(store.getGameForPID, origPid);
 
-assert.strictEqual(
-  store.getRunningGames,
-  origGames,
-);
+  assert.strictEqual(store.getVisibleGame, origVisibleGame);
 
-assert.strictEqual(
-  store.getGameForPID,
-  origPid,
-);
+  assert.strictEqual(store.getVisibleRunningGames, origVisibleRunningGames);
 
-assert.strictEqual(
-  store.getVisibleGame,
-  origVisibleGame,
-);
+  assert.strictEqual(store.getCandidateGames, origCandidates);
 
-assert.strictEqual(
-  store.getVisibleRunningGames,
-  origVisibleRunningGames,
-);
-
-assert.strictEqual(
-  store.getCandidateGames,
-  origCandidates,
-);
-
-assert.strictEqual(
-  store.getRunningDiscordApplicationIds,
-  origApplicationIds,
-);
+  assert.strictEqual(store.getRunningDiscordApplicationIds, origApplicationIds);
 
   // 10) One concurrent task rejecting must not abort siblings.
   const order = [];
   H.RUNTIME.running = true;
-  await H.runConcurrent([
-    async () => { order.push("a"); throw new Error("boom"); },
-    async () => { order.push("b"); },
-    async () => { order.push("c"); },
-  ], 2);
-  assert.deepEqual(order.sort(), ["a", "b", "c"], "one task failure aborted the batch");
+  await H.runConcurrent(
+    [
+      async () => {
+        order.push("a");
+        throw new Error("boom");
+      },
+      async () => {
+        order.push("b");
+      },
+      async () => {
+        order.push("c");
+      },
+    ],
+    2,
+  );
+  assert.deepEqual(
+    order.sort(),
+    ["a", "b", "c"],
+    "one task failure aborted the batch",
+  );
 
   // 10b) VIDEO handler only completes from server-confirmed progress.
   H.RUNTIME.autoClaim = false;
@@ -473,65 +463,75 @@ assert.strictEqual(
     { name: "Video", type: "WATCH_VIDEO", keyName: "WATCH_VIDEO", target: 3 },
     {},
   );
-  assert(H.Tasks.completed.has("video-q"), "server-confirmed video quest did not finish");
+  assert(
+    H.Tasks.completed.has("video-q"),
+    "server-confirmed video quest did not finish",
+  );
   assert(videoCalls >= 2);
 
-// 10c) GAME handler cleans up its patch and awaits completion.
-H.RUNTIME.running = true;
-H.RUNTIME.autoClaim = false;
-H.Tasks.completed.delete("game-q");
+  // 10c) GAME handler cleans up its patch and awaits completion.
+  H.RUNTIME.running = true;
+  H.RUNTIME.autoClaim = false;
+  H.Tasks.completed.delete("game-q");
 
-let heartbeatHandler = null;
-let heartbeatFailureHandler = null;
+  let heartbeatHandler = null;
+  let heartbeatFailureHandler = null;
 
-const gameStore = {
+  const gameStore = {
+    getRunningGames() {
+      return [];
+    },
 
-  getRunningGames() { return []; },
+    getGameForPID() {
+      return null;
+    },
+  };
 
-  getGameForPID() { return null; },
+  const dispatcher2 = {
+    dispatch() {},
 
-};
+    subscribe(event, fn) {
+      if (event === "QUESTS_SEND_HEARTBEAT_SUCCESS") {
+        heartbeatHandler = fn;
+        return;
+      }
 
-const dispatcher2 = {
+      if (event === "QUESTS_SEND_HEARTBEAT_FAILURE") {
+        heartbeatFailureHandler = fn;
+      }
+    },
 
-  dispatch() {},
+    unsubscribe(event, fn) {
+      if (
+        event === "QUESTS_SEND_HEARTBEAT_SUCCESS" &&
+        heartbeatHandler === fn
+      ) {
+        heartbeatHandler = null;
+      }
 
-  subscribe(event, fn) {
-    if (event === "QUESTS_SEND_HEARTBEAT_SUCCESS") {
-      heartbeatHandler = fn;
-      return;
-    }
-
-    if (event === "QUESTS_SEND_HEARTBEAT_FAILURE") {
-      heartbeatFailureHandler = fn;
-    }
-  },
-
-  unsubscribe(event, fn) {
-    if (
-      event === "QUESTS_SEND_HEARTBEAT_SUCCESS" &&
-      heartbeatHandler === fn
-    ) {
-      heartbeatHandler = null;
-    }
-
-    if (
-      event === "QUESTS_SEND_HEARTBEAT_FAILURE" &&
-      heartbeatFailureHandler === fn
-    ) {
-      heartbeatFailureHandler = null;
-    }
-  },
-
-};
+      if (
+        event === "QUESTS_SEND_HEARTBEAT_FAILURE" &&
+        heartbeatFailureHandler === fn
+      ) {
+        heartbeatFailureHandler = null;
+      }
+    },
+  };
   H.setMods({
     API: {
       get() {
         return Promise.resolve({
-          body: [{ name: "Mock Game", executables: [{ os: "win32", name: "mock.exe" }] }],
+          body: [
+            {
+              name: "Mock Game",
+              executables: [{ os: "win32", name: "mock.exe" }],
+            },
+          ],
         });
       },
-      post() { return Promise.resolve({ body: {} }); },
+      post() {
+        return Promise.resolve({ body: {} });
+      },
     },
     RunStore: gameStore,
     Dispatcher: dispatcher2,
@@ -540,29 +540,46 @@ const dispatcher2 = {
   const originalGameGetter = gameStore.getRunningGames;
   const gp = H.Tasks.GAME(
     { id: "game-q", userStatus: {} },
-    { name: "Game", type: "GAME", keyName: "PLAY_ON_DESKTOP", target: 5, appId: "123" },
+    {
+      name: "Game",
+      type: "GAME",
+      keyName: "PLAY_ON_DESKTOP",
+      target: 5,
+      appId: "123",
+    },
     {},
   );
   await new Promise((r) => realSetTimeout(r, 5));
-  assert.equal(typeof heartbeatHandler, "function", "game heartbeat subscription missing");
+  assert.equal(
+    typeof heartbeatHandler,
+    "function",
+    "game heartbeat subscription missing",
+  );
   heartbeatHandler({
     questId: "game-q",
     userStatus: { progress: { PLAY_ON_DESKTOP: { value: 5 } } },
   });
   await gp;
-  assert(H.Tasks.completed.has("game-q"), "game quest did not complete from heartbeat");
-  assert.strictEqual(gameStore.getRunningGames, originalGameGetter, "game store was not restored");
+  assert(
+    H.Tasks.completed.has("game-q"),
+    "game quest did not complete from heartbeat",
+  );
+  assert.strictEqual(
+    gameStore.getRunningGames,
+    originalGameGetter,
+    "game store was not restored",
+  );
   assert.equal(
-  heartbeatHandler,
-  null,
-  "heartbeat listener leaked after game completion",
-);
+    heartbeatHandler,
+    null,
+    "heartbeat listener leaked after game completion",
+  );
 
-assert.equal(
-  heartbeatFailureHandler,
-  null,
-  "heartbeat failure listener leaked after game completion",
-);
+  assert.equal(
+    heartbeatFailureHandler,
+    null,
+    "heartbeat failure listener leaked after game completion",
+  );
 
   // 11) finish() is deduplicated and awaited through auto-claim.
   H.Tasks.completed.delete("finish-q");
@@ -588,58 +605,60 @@ assert.equal(
   const f2 = H.Tasks.finish(fq, ft);
   await Promise.all([f1, f2]);
   assert(H.Tasks.completed.has("finish-q"));
-  assert.equal(claimCalls, 1, "finish deduplication failed / reward claimed twice");
+  assert.equal(
+    claimCalls,
+    1,
+    "finish deduplication failed / reward claimed twice",
+  );
 
   // 12) Long target gets target + grace rather than a fixed 25m hard cut.
   const longMs = H.taskTimeoutMs({ target: 60 * 60 });
   assert(longMs > 60 * 60 * 1000, "long quest runtime does not include grace");
   assert(H.taskTimeoutMs({ target: 10 }) >= H.SYS.MAX_TIME);
 
-// 13) Static lifecycle guards.
-// Match JavaScript expressions independently of formatter/whitespace layout.
-const lifecycleGuards = [
-  {
-    label: "Tasks.inFlight.add(q.id)",
-    pattern: /Tasks\.inFlight\s*\.\s*add\s*\(\s*q\.id\s*\)/,
-  },
+  // 13) Static lifecycle guards.
+  // Match JavaScript expressions independently of formatter whitespace
+  // and trailing commas.
+  const lifecycleGuards = [
+    {
+      label: "Tasks.inFlight.add(q.id)",
+      pattern: /Tasks\.inFlight\s*\.\s*add\s*\(\s*q\.id\s*,?\s*\)/,
+    },
 
-  {
-    label: "Tasks.inFlight.delete(q.id)",
-    pattern: /Tasks\.inFlight\s*\.\s*delete\s*\(\s*q\.id\s*\)/,
-  },
+    {
+      label: "Tasks.inFlight.delete(q.id)",
+      pattern: /Tasks\.inFlight\s*\.\s*delete\s*\(\s*q\.id\s*,?\s*\)/,
+    },
 
-  {
-    label: "Tasks.completed.has(q.id)",
-    pattern: /Tasks\.completed\s*\.\s*has\s*\(\s*q\.id\s*\)/,
-  },
+    {
+      label: "Tasks.completed.has(q.id)",
+      pattern: /Tasks\.completed\s*\.\s*has\s*\(\s*q\.id\s*,?\s*\)/,
+    },
 
-  {
-    label: "Tasks.canRun(q.id)",
-    pattern: /Tasks\.canRun\s*\(\s*q\.id\s*\)/,
-  },
+    {
+      label: "Tasks.canRun(q.id)",
+      pattern: /Tasks\.canRun\s*\(\s*q\.id\s*,?\s*\)/,
+    },
 
-  {
-    label: "await this.finish(q, t)",
-    pattern: /await\s+this\s*\.\s*finish\s*\(\s*q\s*,\s*t\s*\)/,
-  },
+    {
+      label: "await this.finish(q, t)",
+      pattern: /await\s+this\s*\.\s*finish\s*\(\s*q\s*,\s*t\s*,?\s*\)/,
+    },
 
-  {
-    label: "cancelRuntimeTimers()",
-    pattern: /cancelRuntimeTimers\s*\(\s*\)/,
-  },
+    {
+      label: "cancelRuntimeTimers()",
+      pattern: /cancelRuntimeTimers\s*\(\s*\)/,
+    },
 
-  {
-    label: "Traffic.stop()",
-    pattern: /Traffic\s*\.\s*stop\s*\(\s*\)/,
-  },
-];
+    {
+      label: "Traffic.stop()",
+      pattern: /Traffic\s*\.\s*stop\s*\(\s*\)/,
+    },
+  ];
 
-for (const { label, pattern } of lifecycleGuards) {
-  assert(
-    pattern.test(src),
-    `lifecycle guard missing: ${label}`,
-  );
-}
+  for (const { label, pattern } of lifecycleGuards) {
+    assert(pattern.test(src), `lifecycle guard missing: ${label}`);
+  }
 
   H.RUNTIME.autoClaim = false;
   H.RUNTIME.running = false;
