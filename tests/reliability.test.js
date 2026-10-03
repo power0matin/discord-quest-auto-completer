@@ -595,18 +595,25 @@ assert.equal(
   assert(longMs > 60 * 60 * 1000, "long quest runtime does not include grace");
   assert(H.taskTimeoutMs({ target: 10 }) >= H.SYS.MAX_TIME);
 
-  // 13) Static lifecycle guards.
-  for (const marker of [
-    "Tasks.inFlight.add(q.id)",
-    "Tasks.inFlight.delete(q.id)",
-    "Tasks.completed.has(q.id)",
-    "Tasks.canRun(q.id)",
-    "await this.finish(q, t)",
-    "cancelRuntimeTimers()",
-    "Traffic.stop()",
-  ]) {
-    assert(src.includes(marker), `lifecycle guard missing: ${marker}`);
-  }
+// 13) Static lifecycle guards.
+// Normalize whitespace so formatted multi-line expressions are
+// validated the same way as their single-line logical form.
+const normalizedSrc = src.replace(/\s+/g, " ");
+
+for (const marker of [
+  "Tasks.inFlight.add(q.id)",
+  "Tasks.inFlight.delete(q.id)",
+  "Tasks.completed.has(q.id)",
+  "Tasks.canRun(q.id)",
+  "await this.finish(q, t)",
+  "cancelRuntimeTimers()",
+  "Traffic.stop()",
+]) {
+  assert(
+    normalizedSrc.includes(marker),
+    `lifecycle guard missing: ${marker}`,
+  );
+}
 
   H.RUNTIME.autoClaim = false;
   H.RUNTIME.running = false;
