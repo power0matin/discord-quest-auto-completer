@@ -596,22 +596,48 @@ assert.equal(
   assert(H.taskTimeoutMs({ target: 10 }) >= H.SYS.MAX_TIME);
 
 // 13) Static lifecycle guards.
-// Normalize whitespace so formatted multi-line expressions are
-// validated the same way as their single-line logical form.
-const normalizedSrc = src.replace(/\s+/g, " ");
+// Match JavaScript expressions independently of formatter/whitespace layout.
+const lifecycleGuards = [
+  {
+    label: "Tasks.inFlight.add(q.id)",
+    pattern: /Tasks\.inFlight\s*\.\s*add\s*\(\s*q\.id\s*\)/,
+  },
 
-for (const marker of [
-  "Tasks.inFlight.add(q.id)",
-  "Tasks.inFlight.delete(q.id)",
-  "Tasks.completed.has(q.id)",
-  "Tasks.canRun(q.id)",
-  "await this.finish(q, t)",
-  "cancelRuntimeTimers()",
-  "Traffic.stop()",
-]) {
+  {
+    label: "Tasks.inFlight.delete(q.id)",
+    pattern: /Tasks\.inFlight\s*\.\s*delete\s*\(\s*q\.id\s*\)/,
+  },
+
+  {
+    label: "Tasks.completed.has(q.id)",
+    pattern: /Tasks\.completed\s*\.\s*has\s*\(\s*q\.id\s*\)/,
+  },
+
+  {
+    label: "Tasks.canRun(q.id)",
+    pattern: /Tasks\.canRun\s*\(\s*q\.id\s*\)/,
+  },
+
+  {
+    label: "await this.finish(q, t)",
+    pattern: /await\s+this\s*\.\s*finish\s*\(\s*q\s*,\s*t\s*\)/,
+  },
+
+  {
+    label: "cancelRuntimeTimers()",
+    pattern: /cancelRuntimeTimers\s*\(\s*\)/,
+  },
+
+  {
+    label: "Traffic.stop()",
+    pattern: /Traffic\s*\.\s*stop\s*\(\s*\)/,
+  },
+];
+
+for (const { label, pattern } of lifecycleGuards) {
   assert(
-    normalizedSrc.includes(marker),
-    `lifecycle guard missing: ${marker}`,
+    pattern.test(src),
+    `lifecycle guard missing: ${label}`,
   );
 }
 
