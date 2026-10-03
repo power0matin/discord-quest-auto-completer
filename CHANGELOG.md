@@ -6,8 +6,20 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/), and v
 
 ## [Unreleased]
 
+### Fixed
+  * Fixed `PLAY_ON_DESKTOP` quests on newer Discord client builds by reading application IDs from `taskConfigV2` task definitions.
+  * Fixed desktop game detection compatibility by extending `RunningGameStore` patching to modern game visibility and candidate views.
+  * Added heartbeat failure diagnostics for GAME and STREAM tasks.
+  * Improved quest application executable detection for newer Discord application metadata.
+  * Added a watchdog for GAME and STREAM tasks that receive no heartbeat.
+
+### Tests
+  * Added regression coverage for `taskConfigV2` application IDs.
+  * Added regression coverage for modern `RunningGameStore` views.
+  * Added regression coverage for Map-based quest progress.
+
 ### Notes
-- Changes on `main` after the last tag will appear here until the next release.
+  * Changes on `main` after the last tag will appear here until the next release.
 
 ## [v1.1.0] — 2026-08-17
 
