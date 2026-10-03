@@ -160,20 +160,155 @@ assert(H, "QuestMaster test hooks not exported");
   H.Tasks.failTask(qTerminal, task, "forbidden", { permanent: true });
   assert(H.Tasks.skipped.has("qp"), "terminal quest was not skipped");
 
-  // 9) RunningGameStore patch is fully restored.
-  const store = {
-    getRunningGames() { return [{ pid: 1 }]; },
-    getGameForPID(pid) { return pid === 1 ? { pid: 1 } : null; },
-  };
-  const origGames = store.getRunningGames;
-  const origPid = store.getGameForPID;
-  H.setMods({ RunStore: store, Dispatcher: { dispatch() {} } });
-  assert(H.Patcher.init(store));
-  H.Patcher.add({ pid: 9 });
-  assert(store.getRunningGames().some((g) => g.pid === 9));
-  H.Patcher.clean();
-  assert.strictEqual(store.getRunningGames, origGames);
-  assert.strictEqual(store.getGameForPID, origPid);
+// 9) RunningGameStore patch is fully restored and modern
+// game views expose injected games.
+const store = {
+
+  getRunningGames() {
+    return [{ pid: 1 }];
+  },
+
+  getGameForPID(pid) {
+    return pid === 1
+      ? { pid: 1 }
+      : null;
+  },
+
+  getVisibleGame() {
+    return null;
+  },
+
+  getVisibleRunningGames() {
+    return [{ pid: 1 }];
+  },
+
+  getCandidateGames() {
+    return [{ pid: 1 }];
+  },
+
+  getRunningDiscordApplicationIds() {
+    return new Set(["1"]);
+  },
+
+};
+
+const origGames =
+  store.getRunningGames;
+
+const origPid =
+  store.getGameForPID;
+
+const origVisibleGame =
+  store.getVisibleGame;
+
+const origVisibleRunningGames =
+  store.getVisibleRunningGames;
+
+const origCandidates =
+  store.getCandidateGames;
+
+const origApplicationIds =
+  store.getRunningDiscordApplicationIds;
+
+H.setMods({
+  RunStore: store,
+  Dispatcher: {
+    dispatch() {},
+  },
+});
+
+assert(
+  H.Patcher.init(store),
+  "Patcher failed to initialize",
+);
+
+const fakeGame = {
+  id: "123456789012345678",
+  name: "Mock Game",
+  pid: 9,
+};
+
+H.Patcher.add(fakeGame);
+
+assert(
+  store.getRunningGames().some(
+    (g) => g.pid === 9,
+  ),
+  "fake game missing from getRunningGames",
+);
+
+assert.strictEqual(
+  store.getGameForPID(9),
+  fakeGame,
+  "fake game missing from getGameForPID",
+);
+
+assert.strictEqual(
+  store.getVisibleGame(),
+  fakeGame,
+  "fake game missing from getVisibleGame",
+);
+
+assert(
+  store.getVisibleRunningGames().some(
+    (g) => g.pid === 9,
+  ),
+  "fake game missing from getVisibleRunningGames",
+);
+
+assert(
+  store.getCandidateGames().some(
+    (g) => g.pid === 9,
+  ),
+  "fake game missing from getCandidateGames",
+);
+
+const applicationIds =
+  store.getRunningDiscordApplicationIds();
+
+assert(
+  applicationIds instanceof Set,
+  "application IDs should preserve Set type",
+);
+
+assert(
+  applicationIds.has(
+    "123456789012345678",
+  ),
+  "fake application ID missing from running IDs",
+);
+
+H.Patcher.clean();
+
+assert.strictEqual(
+  store.getRunningGames,
+  origGames,
+);
+
+assert.strictEqual(
+  store.getGameForPID,
+  origPid,
+);
+
+assert.strictEqual(
+  store.getVisibleGame,
+  origVisibleGame,
+);
+
+assert.strictEqual(
+  store.getVisibleRunningGames,
+  origVisibleRunningGames,
+);
+
+assert.strictEqual(
+  store.getCandidateGames,
+  origCandidates,
+);
+
+assert.strictEqual(
+  store.getRunningDiscordApplicationIds,
+  origApplicationIds,
+);
 
   // 10) One concurrent task rejecting must not abort siblings.
   const order = [];
