@@ -84,7 +84,7 @@ assert(H, "QuestMaster test hooks not exported");
   }
 
   // 2) Version and task routing.
-  assert.equal(H.CONFIG.VERSION, "v1.1.0");
+  assert.equal(H.CONFIG.VERSION, "v1.2.0");
   assert.equal(H.Tasks.detectType({ tasks: { PLAY_ACTIVITY: { target: 10 } } }).type, "ACTIVITY");
   assert.equal(H.Tasks.detectType({ tasks: { PLAY_ON_DESKTOP: { target: 10 } } }).type, "GAME");
   assert.equal(H.Tasks.detectType({ tasks: { ACHIEVEMENT_IN_ACTIVITY: { target: 1 } } }).type, "ACHIEVEMENT");
