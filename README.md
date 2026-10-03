@@ -37,7 +37,6 @@
   <img
     src="assets/questmaster-dashboard.png"
     alt="QuestMaster dashboard"
-    width="820"
   />
 </p>
 
@@ -45,7 +44,6 @@
   <img
     src="assets/questmaster-settings.png"
     alt="QuestMaster settings panel"
-    width="820"
   />
 </p>
 

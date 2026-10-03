@@ -27,13 +27,10 @@
   <b>تکمیل خودکار کوئست دیسکورد</b> | <b>اسکریپت کوئست</b> | <b>اتوماسیون کوئست</b> | <b>ربات کوئست</b>
 </p>
 
-## پیش‌نمایش
-
 <p align="center">
   <img
     src="assets/questmaster-dashboard.png"
     alt="داشبورد QuestMaster"
-    width="820"
   />
 </p>
 
@@ -41,7 +38,6 @@
   <img
     src="assets/questmaster-settings.png"
     alt="پنل تنظیمات QuestMaster"
-    width="820"
   />
 </p>
 
