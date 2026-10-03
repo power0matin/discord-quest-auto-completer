@@ -31,33 +31,52 @@
   <b>Discord Quest Auto Completer</b> | <b>Discord Quest Script</b> | <b>Auto Complete Discord Quests</b> | <b>Discord Quest Bot</b>
 </p>
 
+## Preview
+
+<p align="center">
+  <img
+    src="assets/questmaster-dashboard.png"
+    alt="QuestMaster dashboard"
+    width="820"
+  />
+</p>
+
+<p align="center">
+  <img
+    src="assets/questmaster-settings.png"
+    alt="QuestMaster settings panel"
+    width="820"
+  />
+</p>
+
 ## Disclaimer
 
 > This tool is for **educational purposes only**. Using automation on Discord may violate their [Terms of Service](https://discord.com/terms) and could result in account penalties. **Use at your own risk.**
 
 ## Features — Discord Quest Auto Completer
 
-| Feature | Description |
-|---------|-------------|
-| **Smart Quest Detection** | Automatically finds and categorizes all available Discord quests |
-| **Video Quest Spoofing** | Complete video-watching quests without watching — auto complete discord video quests |
-| **Game Quest Spoofing** | Fakes running processes to complete play-time quests — discord game quest automation |
-| **Stream Quest Spoofing** | Spoofs streaming progress via heartbeat injection — discord stream quest script |
-| **Activity Quests** | Complete in-activity quests through voice channel heartbeats |
-| **Achievement Bypass** | OAuth flow for achievement-in-activity quests (needs Vencord or relay) |
-| **Beautiful Dashboard** | Draggable in-app UI with real-time progress tracking |
-| **Quest Picker** | Select which quests to complete with reward/type filters |
-| **Auto-Enroll** | Automatically accepts quests before completing them |
-| **Auto-Claim** | Claims rewards automatically when quests complete — discord quest reward auto claim |
-| **Notifications** | Browser notifications when quests finish |
-| **Sound Cues** | Optional audio feedback on completion |
-| **Rate Limit Handling** | Smart retry with exponential backoff |
-| **Anti-Detection** | Optional random delays between quest cycles |
-| **Clean Shutdown** | Properly restores all Discord internals on stop |
+| Feature                   | Description                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| **Smart Quest Detection** | Automatically finds and categorizes all available Discord quests                     |
+| **Video Quest Spoofing**  | Complete video-watching quests without watching — auto complete discord video quests |
+| **Game Quest Spoofing**   | Fakes running processes to complete play-time quests — discord game quest automation |
+| **Stream Quest Spoofing** | Spoofs streaming progress via heartbeat injection — discord stream quest script      |
+| **Activity Quests**       | Complete in-activity quests through voice channel heartbeats                         |
+| **Achievement Bypass**    | OAuth flow for achievement-in-activity quests (needs Vencord or relay)               |
+| **Beautiful Dashboard**   | Draggable in-app UI with real-time progress tracking                                 |
+| **Quest Picker**          | Select which quests to complete with reward/type filters                             |
+| **Auto-Enroll**           | Automatically accepts quests before completing them                                  |
+| **Auto-Claim**            | Claims rewards automatically when quests complete — discord quest reward auto claim  |
+| **Notifications**         | Browser notifications when quests finish                                             |
+| **Sound Cues**            | Optional audio feedback on completion                                                |
+| **Rate Limit Handling**   | Smart retry with exponential backoff                                                 |
+| **Anti-Detection**        | Optional random delays between quest cycles                                          |
+| **Clean Shutdown**        | Properly restores all Discord internals on stop                                      |
 
 ## Quick Start — How to Auto Complete Discord Quests
 
 ### Prerequisites
+
 - **Discord Desktop App** (Windows recommended)
 - **Developer Tools** enabled (`Ctrl+Shift+I`)
 
@@ -91,24 +110,24 @@ The QuestMaster script works by injecting into Discord's internal webpack module
 
 ## Quest Types — Discord Quest Categories
 
-| Type | Method | Time | Notes |
-|------|--------|------|-------|
-| `WATCH_VIDEO` | API timestamp spoofing | ~2-4 min | Fastest, no dependencies |
-| `PLAY_ON_DESKTOP` | Fake process + heartbeat | ~10-25 min | Needs desktop app |
-| `STREAM_ON_DESKTOP` | Stream key spoofing | ~10-25 min | Needs desktop app |
-| `PLAY_ACTIVITY` | Voice channel heartbeat | ~10-25 min | Auto-finds voice channel |
-| `ACHIEVEMENT_IN_ACTIVITY` | OAuth bypass | Instant | Needs Vencord or relay |
+| Type                      | Method                   | Time       | Notes                    |
+| ------------------------- | ------------------------ | ---------- | ------------------------ |
+| `WATCH_VIDEO`             | API timestamp spoofing   | ~2-4 min   | Fastest, no dependencies |
+| `PLAY_ON_DESKTOP`         | Fake process + heartbeat | ~10-25 min | Needs desktop app        |
+| `STREAM_ON_DESKTOP`       | Stream key spoofing      | ~10-25 min | Needs desktop app        |
+| `PLAY_ACTIVITY`           | Voice channel heartbeat  | ~10-25 min | Auto-finds voice channel |
+| `ACHIEVEMENT_IN_ACTIVITY` | OAuth bypass             | Instant    | Needs Vencord or relay   |
 
 ## Configuration — Discord Quest Settings
 
 The script includes a **settings panel** (gear icon in dashboard) with these options:
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| **Auto-enroll** | On | Automatically accept quests before completing |
-| **Auto-claim** | Off | Claim rewards without manual confirmation |
-| **Sound on completion** | Off | Play audio cue when quest finishes |
-| **Random delay** | Off | Add 1-30min random gaps between cycles (anti-detection) |
+| Option                  | Default | Description                                             |
+| ----------------------- | ------- | ------------------------------------------------------- |
+| **Auto-enroll**         | On      | Automatically accept quests before completing           |
+| **Auto-claim**          | Off     | Claim rewards without manual confirmation               |
+| **Sound on completion** | Off     | Play audio cue when quest finishes                      |
+| **Random delay**        | Off     | Add 1-30min random gaps between cycles (anti-detection) |
 
 ## Enabling DevTools (Windows)
 
@@ -130,15 +149,16 @@ Without these, achievement quests will show "ACTION REQUIRED" and need manual co
 
 ## Troubleshooting — Discord Quest Issues
 
-| Problem | Solution |
-|---------|----------|
-| **"No auth token"** | Reload Discord, wait 5 seconds, then paste again |
-| **"Module not found"** | Discord updated — the script needs updating too |
-| **"Rate limited"** | Wait for the timer or reload Discord to reset |
-| **Quest stuck at 0%** | Check if quest requires specific conditions (region, account type) |
-| **CAPTCHA required** | Script cannot bypass CAPTCHA — complete manually |
-| **Dashboard not appearing** | Make sure you typed `allow pasting` first |
-| **Script crashes** | Reload Discord and paste fresh — the lock auto-releases after 1.5s |
+| Problem                     | Solution                                                                                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **"No auth token"**         | Reload Discord, wait 5 seconds, then paste again                                                                                                                 |
+| **"Module not found"**      | Discord updated its internal modules — make sure you are using the latest QuestMaster release                                                                    |
+| **GAME quest stuck at 0%**  | Make sure you are using a recent QuestMaster release and Discord Desktop. If the quest still does not progress, check the Console for heartbeat failure messages |
+| **Rate limited**            | Wait for the retry timer or reload Discord before trying again                                                                                                   |
+| **Quest stuck at 0%**       | Check the Console for task or heartbeat errors and verify that the quest is still valid and available                                                            |
+| **CAPTCHA required**        | Script cannot bypass CAPTCHA — complete manually                                                                                                                 |
+| **Dashboard not appearing** | Make sure you typed `allow pasting` first                                                                                                                        |
+| **Script crashes**          | Reload Discord and paste fresh — the lock auto-releases after 1.5s                                                                                               |
 
 ## FAQ — Discord Quest Auto Completer Questions
 
