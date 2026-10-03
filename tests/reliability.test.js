@@ -217,20 +217,54 @@ assert(H, "QuestMaster test hooks not exported");
   assert(H.Tasks.completed.has("video-q"), "server-confirmed video quest did not finish");
   assert(videoCalls >= 2);
 
-  // 10c) GAME handler cleans up its patch and awaits completion.
-  H.RUNTIME.running = true;
-  H.RUNTIME.autoClaim = false;
-  H.Tasks.completed.delete("game-q");
-  let heartbeatHandler = null;
-  const gameStore = {
-    getRunningGames() { return []; },
-    getGameForPID() { return null; },
-  };
-  const dispatcher2 = {
-    dispatch() {},
-    subscribe(_event, fn) { heartbeatHandler = fn; },
-    unsubscribe(_event, fn) { if (heartbeatHandler === fn) heartbeatHandler = null; },
-  };
+// 10c) GAME handler cleans up its patch and awaits completion.
+H.RUNTIME.running = true;
+H.RUNTIME.autoClaim = false;
+H.Tasks.completed.delete("game-q");
+
+let heartbeatHandler = null;
+let heartbeatFailureHandler = null;
+
+const gameStore = {
+
+  getRunningGames() { return []; },
+
+  getGameForPID() { return null; },
+
+};
+
+const dispatcher2 = {
+
+  dispatch() {},
+
+  subscribe(event, fn) {
+    if (event === "QUESTS_SEND_HEARTBEAT_SUCCESS") {
+      heartbeatHandler = fn;
+      return;
+    }
+
+    if (event === "QUESTS_SEND_HEARTBEAT_FAILURE") {
+      heartbeatFailureHandler = fn;
+    }
+  },
+
+  unsubscribe(event, fn) {
+    if (
+      event === "QUESTS_SEND_HEARTBEAT_SUCCESS" &&
+      heartbeatHandler === fn
+    ) {
+      heartbeatHandler = null;
+    }
+
+    if (
+      event === "QUESTS_SEND_HEARTBEAT_FAILURE" &&
+      heartbeatFailureHandler === fn
+    ) {
+      heartbeatFailureHandler = null;
+    }
+  },
+
+};
   H.setMods({
     API: {
       get() {
@@ -259,7 +293,17 @@ assert(H, "QuestMaster test hooks not exported");
   await gp;
   assert(H.Tasks.completed.has("game-q"), "game quest did not complete from heartbeat");
   assert.strictEqual(gameStore.getRunningGames, originalGameGetter, "game store was not restored");
-  assert.equal(heartbeatHandler, null, "heartbeat listener leaked after game completion");
+  assert.equal(
+  heartbeatHandler,
+  null,
+  "heartbeat listener leaked after game completion",
+);
+
+assert.equal(
+  heartbeatFailureHandler,
+  null,
+  "heartbeat failure listener leaked after game completion",
+);
 
   // 11) finish() is deduplicated and awaited through auto-claim.
   H.Tasks.completed.delete("finish-q");
